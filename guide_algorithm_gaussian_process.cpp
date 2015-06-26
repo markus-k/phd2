@@ -64,6 +64,9 @@ class GuideGaussianProcess::GuideGaussianProcessDialogPane : public ConfigDialog
     wxSpinCtrlDouble *m_pPKSignalVariance;
     wxSpinCtrlDouble *m_pSEKLengthScale;
     wxSpinCtrlDouble *m_pMixingParameter;
+    
+    wxCheckBox       *m_checkboxOptimization;
+    wxCheckBox       *m_checkboxOptimizationNoise;
 
 public:
     GuideGaussianProcessDialogPane(wxWindow *pParent, GuideGaussianProcess *pGuideAlgorithm)
@@ -121,6 +124,9 @@ public:
                                                   wxDefaultPosition,wxSize(width+30, -1),
                                                   wxSP_ARROW_KEYS, 0.0, 1.0, 0.8, 0.01);
 
+		m_checkboxOptimization = new wxCheckBox(pParent, wxID_ANY, _T(""));
+        m_checkboxOptimizationNoise = new wxCheckBox(pParent, wxID_ANY, _T(""));
+
         DoAdd(_("Control Gain"), m_pControlGain,
               _("The control gain defines how aggressive the controller is. It is the amount of pointing error that is "
                 "fed back to the system. Default = 0.8"));
@@ -154,6 +160,11 @@ public:
         DoAdd(_("Mixing"), m_pMixingParameter,
               _("The mixing defines how much control signal is generated from the prediction (low-pass component) and how much "
                 "from the current measurement (high-pass component). Default = 0.8"));
+
+        DoAdd(_("Optimize"), m_checkboxOptimization,
+              _("Optimize hyperparameters"));
+        DoAdd(_("Compute sigma"), m_checkboxOptimizationNoise,
+              _("Compute sigma"));
     }
 
     virtual ~GuideGaussianProcessDialogPane(void) 
@@ -180,6 +191,9 @@ public:
       m_pSEKLengthScale->SetValue(hyperparameters[4]);
 
       m_pMixingParameter->SetValue(m_pGuideAlgorithm->GetMixingParameter());
+      
+      m_checkboxOptimization->SetValue(m_pGuideAlgorithm->GetBoolOptimizeHyperparameters());
+      m_checkboxOptimizationNoise->SetValue(m_pGuideAlgorithm->GetBoolOptimizeSigma());
     }
 
     // Set the parameters chosen in the GUI in the actual guiding algorithm
@@ -199,6 +213,9 @@ public:
 
       m_pGuideAlgorithm->SetGPHyperparameters(hyperparameters);
       m_pGuideAlgorithm->SetMixingParameter(m_pMixingParameter->GetValue());
+      m_pGuideAlgorithm->SetBoolOptimizeHyperparameters(m_checkboxOptimization->GetValue());
+      m_pGuideAlgorithm->SetBoolOptimizeSigma(m_checkboxOptimizationNoise->GetValue());
+
     }
 
 };
@@ -228,6 +245,9 @@ struct GuideGaussianProcess::gp_guide_parameters
 
     int min_nb_element_for_inference;
     int min_points_for_optimisation;
+    
+    bool optimize_hyperparameters;
+    bool optimize_sigma;
 
 #if GP_DEBUG_MATLAB_
     UDPGuidingInteraction udpInteraction_;
@@ -247,6 +267,8 @@ struct GuideGaussianProcess::gp_guide_parameters
       filtered_signal_(0.0),
       min_nb_element_for_inference(0),
       min_points_for_optimisation(0),
+      optimize_hyperparameters(false),
+      optimize_sigma(false),
       gp_(covariance_function_)
     {
 
@@ -295,6 +317,10 @@ static const double DefaultLengthScaleSEKer            = 500;                   
 static const int    DefaultNbMinPointsForOptimisation = 50;                    // minimal number of points for doing the optimization
 static const double DefaultMixing                      = 0.8;
 
+// by default optimization turned off
+static const bool   DefaultOptimize                    = false;
+static const bool   DefaultOptimizeNoise               = false;
+
 GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
     : GuideAlgorithm(pMount, axis),
       parameters(0)
@@ -322,6 +348,13 @@ GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
     v_hyperparameters[4] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_se_kern",  DefaultLengthScaleSEKer);
 
     SetGPHyperparameters(v_hyperparameters);
+    
+    bool optimize = pConfig->Profile.GetBoolean(configPath + "/gp_optimize_hyperparameters", DefaultOptimize);
+    SetBoolOptimizeHyperparameters(optimize);
+
+    bool optimize_sigma = pConfig->Profile.GetBoolean(configPath + "/gp_optimize_sigma", DefaultOptimizeNoise);
+    SetBoolOptimizeSigma(optimize_sigma);
+
 
     // set masking, so that we only optimize the period length. The rest is fixed or estimated otherwise.
     Eigen::VectorXi mask(5);
@@ -561,6 +594,21 @@ bool GuideGaussianProcess::SetMixingParameter(double mixing)
     return error;
 }
 
+bool GuideGaussianProcess::SetBoolOptimizeHyperparameters(bool active)
+{
+  parameters->optimize_hyperparameters = active;
+  pConfig->Profile.SetBoolean(GetConfigPath() + "/gp_optimize_hyperparameters", parameters->optimize_hyperparameters);
+  return true;
+}
+
+
+bool GuideGaussianProcess::SetBoolOptimizeSigma(bool active)
+{
+  parameters->optimize_sigma = active;
+  pConfig->Profile.SetBoolean(GetConfigPath() + "/gp_optimize_sigma", parameters->optimize_sigma);
+  return true;
+}
+
 double GuideGaussianProcess::GetControlGain() const
 {
     return parameters->control_gain_;
@@ -592,6 +640,15 @@ double GuideGaussianProcess::GetMixingParameter() const
     return parameters->mixing_parameter_;
 }
 
+bool GuideGaussianProcess::GetBoolOptimizeHyperparameters() const
+{
+    return parameters->optimize_hyperparameters;
+}
+
+bool GuideGaussianProcess::GetBoolOptimizeSigma() const
+{
+    return parameters->optimize_sigma;
+}
 
 wxString GuideGaussianProcess::GetSettingsSummary()
 {
