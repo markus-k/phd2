@@ -522,10 +522,6 @@ if(WIN32)
 
   # apparently this is the way cmake works... did not know, the OpenCVConfig.cmake file is enough for the configuration
   set(OpenCV_DIR ${opencv_root}/build CACHE PATH "Location of the OpenCV configuration directory")
-  if(NOT OpenCV_DIR STREQUAL ${opencv_root}/build)
-    set(OpenCV_DIR ${opencv_root}/build CACHE PATH "Location of the OpenCV configuration directory" FORCE)
-  endif()
-  
   set(OpenCV_SHARED ON)
   set(OpenCV_STATIC OFF)
   set(BUILD_SHARED_LIBS ON)
@@ -579,6 +575,10 @@ if(WIN32)
   set(PHD_LINK_EXTERNAL     ${PHD_LINK_EXTERNAL}      ${PHD_PROJECT_ROOT_DIR}/cameras/AsiCamera2.lib)
   set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/ASICamera2.dll)
   
+  # altair cameras
+  set(PHD_LINK_EXTERNAL     ${PHD_LINK_EXTERNAL}      ${PHD_PROJECT_ROOT_DIR}/cameras/AltairCamera.lib)
+  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/AltairCamera.dll)
+  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/Altaircam.dll)
   
   # DsiDevice
   set(PHD_LINK_EXTERNAL     ${PHD_LINK_EXTERNAL}      ${PHD_PROJECT_ROOT_DIR}/cameras/DsiDevice.lib)
@@ -594,6 +594,8 @@ if(WIN32)
   
   # SSAGIF
   set(PHD_LINK_EXTERNAL     ${PHD_LINK_EXTERNAL}      ${PHD_PROJECT_ROOT_DIR}/cameras/SSAGIF.lib)
+  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/SSAGIFv2.dll)
+  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/SSAGIFv4.dll)
   
   # FCLib
   set(PHD_LINK_EXTERNAL     ${PHD_LINK_EXTERNAL}      ${PHD_PROJECT_ROOT_DIR}/cameras/FCLib.lib)
@@ -606,31 +608,30 @@ if(WIN32)
   
   # astroDLL
   #set(PHD_LINK_EXTERNAL ${PHD_LINK_EXTERNAL} ${PHD_PROJECT_ROOT_DIR}/cameras/astroDLLQHY5V.lib)
-  
+  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/astroDLLGeneric.dll)
+  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/astroDLLQHY5V.dll)
+  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/astroDLLsspiag.dll)
+
   # CMOSDLL
   set(PHD_LINK_EXTERNAL     ${PHD_LINK_EXTERNAL}      ${PHD_PROJECT_ROOT_DIR}/cameras/CMOSDLL.lib)
   set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/CMOSDLL.dll)
-  
-  
+
   # inpout32 ?
   set(PHD_LINK_EXTERNAL     ${PHD_LINK_EXTERNAL}      ${PHD_PROJECT_ROOT_DIR}/cameras/inpout32.lib)
   set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/inpout32.dll)
-  
- 
+
   # some other that are explicitly loaded at runtime
   set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/qhy5IIdll.dll)
   set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/qhy5LIIdll.dll)
-  
-  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/astroDLLsspiag.dll)
-  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/SSPIAGCAM.dll)
-  
 
-  # ASCOM, 
+  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/SSPIAGCAM.dll)
+  set(PHD_COPY_EXTERNAL_ALL ${PHD_COPY_EXTERNAL_ALL}  ${PHD_PROJECT_ROOT_DIR}/WinLibs/SSPIAGUSB_WIN.dll)
+
+  # ASCOM
   # disabled since not used in the SLN
   #find_package(ASCOM_INTERFACE REQUIRED)
   #include_directories(${ASCOM_INTERFACE_DIR})
-  
-  
+
 endif()
 
 
@@ -845,13 +846,17 @@ endif()  # APPLE
 #
 #############################################
 if(UNIX AND NOT APPLE)
+
+ if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm(.*)")
+    set(arch "armv6")
+ else()
   if(CMAKE_SIZEOF_VOID_P EQUAL 8) 
     set(arch "x64") 
   else() 
     set(arch "x86") 
   endif()
-  
-  
+ endif()
+
   find_path(ZWO_INCLUDE_DIR ASICamera2.h
     PATHS
     ${PHD_PROJECT_ROOT_DIR}/cameras

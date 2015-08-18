@@ -37,8 +37,10 @@
 #define MOUNT_H_INCLUDED
 
 #include "guide_algorithms.h"
-#include "messagebox_proxy.h"
 #include "image_math.h"
+#include "messagebox_proxy.h"
+
+class BacklashComp;
 
 enum GUIDE_DIRECTION {
     NONE  = -1,
@@ -86,6 +88,13 @@ struct CalibrationDetails
     int decStepCount;
 };
 
+enum MountMoveType
+{
+    MOVETYPE_DIRECT,    // direct move, do not use guide algorithm
+    MOVETYPE_ALGO,      // normal guide move, use guide algorithm
+    MOVETYPE_DEDUCED,   // deduced move (dead-reckoning)
+};
+
 struct MoveResultInfo
 {
     int amountMoved;
@@ -106,6 +115,7 @@ class Mount : public wxMessageBoxProxy
 
     double m_currentDeclination;
 
+
 protected:
     bool m_guidingEnabled;
 
@@ -113,6 +123,8 @@ protected:
     GuideAlgorithm *m_pYGuideAlgorithm;
 
     wxString m_Name;
+
+    BacklashComp *m_backlashComp;
 
     // Things related to the Advanced Config Dialog
 protected:
@@ -153,7 +165,7 @@ protected:
     void Mount::TestTransforms(void);
 #endif
 
-    // functions with an implemenation in Guider that cannot be over-ridden
+    // functions with an implemenation in Mount that cannot be over-ridden
     // by a subclass
 public:
 
@@ -178,7 +190,7 @@ public:
     bool GetGuidingEnabled(void);
     void SetGuidingEnabled(bool guidingEnabled);
 
-    virtual MOVE_RESULT Move(const PHD_Point& cameraVectorEndpoint, bool normalMove=true);
+    virtual MOVE_RESULT Move(const PHD_Point& cameraVectorEndpoint, MountMoveType moveType);
     bool TransformCameraCoordinatesToMountCoordinates(const PHD_Point& cameraVectorEndpoint,
                                                       PHD_Point& mountVectorEndpoint);
 
@@ -196,7 +208,7 @@ public:
     // pure virtual functions -- these MUST be overridden by a subclass
 public:
     // move the requested direction, return the actual amount of the move
-    virtual MOVE_RESULT Move(GUIDE_DIRECTION direction, int amount, bool normalMove, MoveResultInfo *moveResultInfo) = 0;
+    virtual MOVE_RESULT Move(GUIDE_DIRECTION direction, int amount, MountMoveType moveType, MoveResultInfo *moveResultInfo) = 0;
     virtual MOVE_RESULT CalibrationMove(GUIDE_DIRECTION direction, int duration) = 0;
     virtual int CalibrationMoveSize(void) = 0;
     virtual int CalibrationTotDistance(void) = 0;
@@ -205,13 +217,17 @@ public:
     virtual bool BeginCalibration(const PHD_Point &currentLocation) = 0;
     virtual bool UpdateCalibrationState(const PHD_Point &currentLocation) = 0;
 
-    virtual bool GuidingCeases(void)=0;
+    virtual bool GuidingCeases(void) = 0;
 
-    virtual ConfigDialogPane *GetConfigDialogPane(wxWindow *pParent)=0;
+    virtual ConfigDialogPane *GetConfigDialogPane(wxWindow *pParent) = 0;
     virtual wxString GetMountClassName() const = 0;
 
     GuideAlgorithm *GetXGuideAlgorithm(void) const;
     GuideAlgorithm *GetYGuideAlgorithm(void) const;
+
+    bool GetLastCalibrationParams(Calibration *params);
+    BacklashComp *GetBacklashComp() { return m_backlashComp; }
+    void FlagBacklashOverShoot(double pixelAmount, GuideAxis axis);
 
     // virtual functions -- these CAN be overridden by a subclass, which should
     // consider whether they need to call the base class functions as part of
@@ -236,7 +252,6 @@ public:
     virtual bool IsCalibrated(void);
     virtual void ClearCalibration(void);
     virtual void SetCalibration(const Calibration& cal);
-    bool GetLastCalibrationParams(Calibration *params);
     virtual void SetCalibrationDetails(const CalibrationDetails& calDetails, double xAngle, double yAngle);
     void GetCalibrationDetails(CalibrationDetails *calDetails);
 

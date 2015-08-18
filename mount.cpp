@@ -34,6 +34,7 @@
  */
 
 #include "phd.h"
+#include "backlash_comp.h"
 #include "guiding_assistant.h"
 
 #include <wx/tokenzr.h>
@@ -76,7 +77,7 @@ static ConfigDialogPane *GetGuideAlgoDialogPane(GuideAlgorithm *algo, wxWindow *
     // we need to force the guide alogorithm config pane to be large enough for
     // any of the guide algorithms
     ConfigDialogPane *pane = algo->GetConfigDialogPane(parent);
-    pane->SetMinSize(-1, 190);
+    pane->SetMinSize(-1, 110);
     return pane;
 }
 
@@ -209,7 +210,7 @@ void Mount::MountConfigDialogPane::UnloadValues(void)
     if (m_pClearCalibration->IsChecked())
     {
         m_pMount->ClearCalibration();
-        Debug.AddLine(wxString::Format("User cleared %s calibration", m_pMount->IsStepGuider() ? "AO" : "Mount"));
+        Debug.Write(wxString::Format("User cleared %s calibration\n", m_pMount->IsStepGuider() ? "AO" : "Mount"));
     }
 
     m_pMount->SetGuidingEnabled(m_pEnableGuide->GetValue());
@@ -299,6 +300,7 @@ void Mount::SetGuidingEnabled(bool guidingEnabled)
     if (guidingEnabled != m_guidingEnabled)
     {
         const char *s = IsStepGuider() ? "AOGuidingEnabled" : "MountGuidingEnabled";
+        Debug.Write(wxString::Format("%s: %d\n", s, guidingEnabled));
         GuideLog.SetGuidingParam(s, guidingEnabled ? "true" : "false");
         m_guidingEnabled = guidingEnabled;
     }
@@ -332,7 +334,7 @@ bool Mount::CreateGuideAlgorithm(int guideAlgorithm, Mount *mount, GuideAxis axi
                 break;
         }
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -477,6 +479,8 @@ Mount::Mount(void)
     m_pXGuideAlgorithm = NULL;
     m_guidingEnabled = true;
 
+    m_backlashComp = 0;
+
     ClearCalibration();
 
 #ifdef TEST_TRANSFORMS
@@ -488,6 +492,7 @@ Mount::~Mount()
 {
     delete m_pXGuideAlgorithm;
     delete m_pYGuideAlgorithm;
+    delete m_backlashComp;
 }
 
 double Mount::xRate()
@@ -533,7 +538,7 @@ bool Mount::FlipCalibration(void)
 
         bool decFlipRequired = CalibrationFlipRequiresDecFlip();
 
-        Debug.AddLine(wxString::Format("FlipCalibration before: x=%.1f, y=%.1f decFlipRequired=%d sideOfPier=%s rotAngle=%s",
+        Debug.Write(wxString::Format("FlipCalibration before: x=%.1f, y=%.1f decFlipRequired=%d sideOfPier=%s rotAngle=%s\n",
             degrees(origX), degrees(origY), decFlipRequired, ::PierSideStr(m_cal.pierSide), RotAngleStr(m_cal.rotatorAngle)));
 
         double newX = origX + M_PI;
@@ -553,7 +558,7 @@ bool Mount::FlipCalibration(void)
         PierSide priorPierSide = m_cal.pierSide;
         PierSide newPierSide = OppositeSide(m_cal.pierSide);
 
-        Debug.AddLine(wxString::Format("FlipCalibration after: x=%.1f, y=%.1f sideOfPier=%s",
+        Debug.Write(wxString::Format("FlipCalibration after: x=%.1f, y=%.1f sideOfPier=%s\n",
             degrees(newX), degrees(newY), ::PierSideStr(newPierSide)));
 
         Calibration cal;
@@ -571,7 +576,7 @@ bool Mount::FlipCalibration(void)
             ::PierSideStr(priorPierSide, ""), degrees(origX), degrees(origY),
             ::PierSideStr(newPierSide, ""), degrees(newX), degrees(newY)), 0);
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -580,37 +585,57 @@ bool Mount::FlipCalibration(void)
     return bError;
 }
 
-Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, bool normalMove)
+void Mount::FlagBacklashOverShoot(double pixelAmount, GuideAxis axis)
+{
+    if (m_backlashComp && m_backlashComp->IsEnabled() && axis == GUIDE_DEC && !IsStepGuider() && GetGuidingEnabled())
+        m_backlashComp->HandleOverShoot((int) (pixelAmount / m_cal.yRate));
+}
+
+Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveType moveType)
 {
     MOVE_RESULT result = MOVE_OK;
 
     try
     {
+        double xDistance, yDistance;
         PHD_Point mountVectorEndpoint;
 
-        if (TransformCameraCoordinatesToMountCoordinates(cameraVectorEndpoint, mountVectorEndpoint))
+        if (moveType == MOVETYPE_DEDUCED)
         {
-            throw ERROR_INFO("Unable to transform camera coordinates");
+            xDistance = m_pXGuideAlgorithm ? m_pXGuideAlgorithm->deduceResult() : 0.0;
+            yDistance = m_pYGuideAlgorithm ? m_pYGuideAlgorithm->deduceResult() : 0.0;
+            if (xDistance == 0.0 && yDistance == 0.0)
+                return result;
+            mountVectorEndpoint.X = xDistance;
+            mountVectorEndpoint.Y = yDistance;
+
+            Debug.Write(wxString::Format("Dead-reckoning move xDistance=%.2f yDistance=%.2f\n",
+                xDistance, yDistance));
         }
-
-        double xDistance = mountVectorEndpoint.X;
-        double yDistance = mountVectorEndpoint.Y;
-
-        Debug.AddLine(wxString::Format("Moving (%.2f, %.2f) raw xDistance=%.2f yDistance=%.2f",
-            cameraVectorEndpoint.X, cameraVectorEndpoint.Y, xDistance, yDistance));
-
-        if (normalMove)
+        else
         {
-            // Feed the raw distances to the guide algorithms
-
-            if (m_pXGuideAlgorithm)
+            if (TransformCameraCoordinatesToMountCoordinates(cameraVectorEndpoint, mountVectorEndpoint))
             {
-                xDistance = m_pXGuideAlgorithm->result(xDistance);
+                throw ERROR_INFO("Unable to transform camera coordinates");
             }
 
-            if (m_pYGuideAlgorithm)
+            xDistance = mountVectorEndpoint.X;
+            yDistance = mountVectorEndpoint.Y;
+
+            Debug.Write(wxString::Format("Moving (%.2f, %.2f) raw xDistance=%.2f yDistance=%.2f\n",
+                cameraVectorEndpoint.X, cameraVectorEndpoint.Y, xDistance, yDistance));
+
+            if (moveType == MOVETYPE_ALGO)
             {
-                yDistance = m_pYGuideAlgorithm->result(yDistance);
+                // Feed the raw distances to the guide algorithms
+                if (m_pXGuideAlgorithm)
+                {
+                    xDistance = m_pXGuideAlgorithm->result(xDistance);
+                }
+                if (m_pYGuideAlgorithm)
+                {
+                    yDistance = m_pYGuideAlgorithm->result(yDistance);
+                }
             }
         }
 
@@ -620,7 +645,7 @@ Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, bool norma
 
         int requestedXAmount = (int) floor(fabs(xDistance / m_xRate) + 0.5);
         MoveResultInfo xMoveResult;
-        result = Move(xDirection, requestedXAmount, normalMove, &xMoveResult);
+        result = Move(xDirection, requestedXAmount, moveType, &xMoveResult);
 
         wxString msg;
 
@@ -634,7 +659,12 @@ Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, bool norma
         if (result == MOVE_OK || result == MOVE_ERROR)
         {
             int requestedYAmount = (int) floor(fabs(yDistance / m_cal.yRate) + 0.5);
-            result = Move(yDirection, requestedYAmount, normalMove, &yMoveResult);
+            if (!IsStepGuider() && moveType != MOVETYPE_DIRECT && GetGuidingEnabled())
+            {
+                int backlash_pulse = m_backlashComp->GetBacklashComp(yDirection, yDistance);
+                requestedYAmount += backlash_pulse;
+            }
+            result = Move(yDirection, requestedYAmount, moveType, &yMoveResult);
 
             if (yMoveResult.amountMoved > 0)
             {
@@ -674,14 +704,14 @@ Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, bool norma
         GuideLog.GuideStep(info);
         EvtServer.NotifyGuideStep(info);
 
-        if (normalMove)
+        if (moveType != MOVETYPE_DIRECT)
         {
             pFrame->pGraphLog->AppendData(info);
             pFrame->pTarget->AppendData(info);
             GuidingAssistant::NotifyGuideStep(info);
         }
     }
-    catch (wxString errMsg)
+    catch (const wxString& errMsg)
     {
         POSSIBLY_UNUSED(errMsg);
         result = MOVE_ERROR;
@@ -769,7 +799,7 @@ bool Mount::TransformCameraCoordinatesToMountCoordinates(const PHD_Point& camera
                 cameraVectorEndpoint.X, cameraVectorEndpoint.Y, hyp, cameraTheta, mountVectorEndpoint.X, mountVectorEndpoint.Y,
                 mountVectorEndpoint.Angle());
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -812,7 +842,7 @@ bool Mount::TransformMountCoordinatesToCameraCoordinates(const PHD_Point& mountV
                 mountVectorEndpoint.X, mountVectorEndpoint.Y, hyp, mountTheta, cameraVectorEndpoint.X, cameraVectorEndpoint.Y,
                 cameraVectorEndpoint.Angle());
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;

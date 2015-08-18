@@ -26,7 +26,7 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# File created by Raffi Enficiaud 
+# File created by Raffi Enficiaud
 
 cmake_minimum_required(VERSION 2.8.11)
 
@@ -36,7 +36,7 @@ if(COMMAND cmake_policy)
 endif(COMMAND cmake_policy)
 
 set(VERSION_MAJOR 2)
-set(VERSION_MINOR 3)
+set(VERSION_MINOR 5)
 set(VERSION_PATCH 0)
 
 #################################################################################
@@ -55,8 +55,12 @@ if(WIN32)
   set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE)
 endif()
 
+if(UNIX AND NOT APPLE)
+  set(CMAKE_INSTALL_PREFIX /usr)
+endif()
+
 set(USE_FOLDERS TRUE)
-set(BUILD_SHARED_LIBS OFF)
+set(BUILD_SHARED_LIBS FALSE)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 
@@ -91,9 +95,6 @@ endif()
 include(CheckCXXCompilerFlag)
 if(WIN32)
   set(FIND_LIBRARY_USE_LIB64_PATHS FALSE)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
-  
   #set(CMAKE_LIBRARY_ARCHITECTURE x86)
 else()
   # c++11 options
@@ -207,6 +208,8 @@ set(cam_SRC
   ${phd_src_dir}/cam_SSPIAG.h
   ${phd_src_dir}/cam_Starfish.cpp
   ${phd_src_dir}/cam_Starfish.h
+  ${phd_src_dir}/cam_Altair.cpp
+  ${phd_src_dir}/cam_Altair.h
   ${phd_src_dir}/cam_StarShootDSCI.cpp
   ${phd_src_dir}/cam_StarShootDSCI.h
   ${phd_src_dir}/cam_SXV.cpp
@@ -289,6 +292,7 @@ set(scopes_SRC
   ${phd_src_dir}/scope_INDI.h
   ${phd_src_dir}/scope_INDI.cpp
   ${phd_src_dir}/scopes.h
+  ${phd_src_dir}/stepguider_simulator.h
   ${phd_src_dir}/stepguider_sxao.cpp
   ${phd_src_dir}/stepguider_sxao.h
   ${phd_src_dir}/stepguider.cpp
@@ -298,6 +302,8 @@ set(scopes_SRC
 source_group(Scopes FILES ${scopes_SRC})
 
 set(guiding_SRC
+  ${phd_src_dir}/backlash_comp.cpp
+  ${phd_src_dir}/backlash_comp.h
   ${phd_src_dir}/guide_algorithm_hysteresis.cpp
   ${phd_src_dir}/guide_algorithm_hysteresis.h
   ${phd_src_dir}/guide_algorithm_identity.cpp
@@ -308,6 +314,7 @@ set(guiding_SRC
   ${phd_src_dir}/guide_algorithm_lowpass2.h
   ${phd_src_dir}/guide_algorithm_resistswitch.cpp
   ${phd_src_dir}/guide_algorithm_resistswitch.h
+  ${phd_src_dir}/guide_algorithm.cpp
   ${phd_src_dir}/guide_algorithm.h
   ${phd_src_dir}/guide_algorithms.h
   ${phd_src_dir}/guider_onestar.cpp
@@ -375,7 +382,6 @@ set(phd2_SRC
   ${phd_src_dir}/graph-stepguider.h
   ${phd_src_dir}/graph.cpp
   ${phd_src_dir}/graph.h
-  ${phd_src_dir}/guide_algorithm.cpp
   ${phd_src_dir}/guiding_assistant.cpp
   ${phd_src_dir}/guiding_assistant.h
   ${phd_src_dir}/guidinglog.cpp
@@ -452,7 +458,6 @@ set(phd2_SRC
   ${phd_src_dir}/star.h
   ${phd_src_dir}/star_profile.cpp
   ${phd_src_dir}/star_profile.h
-  ${phd_src_dir}/stepguider_simulator.h
   ${phd_src_dir}/target.cpp
   ${phd_src_dir}/target.h
   ${phd_src_dir}/testguide.cpp
@@ -494,6 +499,9 @@ if (WIN32)
       ${phd_src_dir}/comdispatch.cpp
       ${phd_src_dir}/phd.rc   # resource file
      )
+  include_directories("C:/Program Files (x86)/Visual Leak Detector/include")
+  link_directories("C:/Program Files (x86)/Visual Leak Detector/lib/win32")
+
 endif()
 
 source_group(src FILES ${phd2_SRC})
@@ -533,6 +541,20 @@ if(APPLE)
   set( MACOSX_BUNDLE_BUNDLE_VERSION       "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}" )
   set( MACOSX_BUNDLE_COPYRIGHT            "(C) 2010-2015 Open-phd-guiding team" )
 
+  # get the locales
+  file( GLOB_RECURSE local_files 
+        LIST_DIRECTORIES false 
+        RELATIVE ${PHD_PROJECT_ROOT_DIR}
+        ${PHD_PROJECT_ROOT_DIR}/locale/*.[mp]o)
+
+  file( GLOB_RECURSE local_help_files 
+        LIST_DIRECTORIES false 
+        RELATIVE ${PHD_PROJECT_ROOT_DIR}
+        ${PHD_PROJECT_ROOT_DIR}/locale/*PHD2GuideHelp.zip)
+  
+  set(local_files ${local_files} ${local_help_files})
+
+
   add_executable(
     phd2
     MACOSX_BUNDLE
@@ -549,6 +571,9 @@ if(APPLE)
     # extra frameworks
     ${sbigudFramework}
     ${fcCamFramework}
+    
+    # locales
+    ${local_files}
   )
   set_target_properties(
     phd2 
@@ -567,8 +592,35 @@ if(APPLE)
       PROPERTIES 
         MACOSX_PACKAGE_LOCATION Resources
   )
-  set_source_files_properties(${fcCamFramework}  PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks)  
-  set_source_files_properties(${sbigudFramework} PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks)
+  
+  foreach(_l IN LISTS local_files)
+    get_filename_component(_dest ${_l} DIRECTORY)
+    set_source_files_properties(
+      ${_l}
+      PROPERTIES 
+        MACOSX_PACKAGE_LOCATION Resources/${_dest}
+  )
+
+  endforeach()
+  
+  # this is a workaround to what looks like a bug on cmake for Makefile generators
+  if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
+    get_filename_component(framework1 ${fcCamFramework} NAME)
+    get_filename_component(framework2 ${sbigudFramework} NAME)
+    add_custom_command(
+      TARGET phd2
+      POST_BUILD
+      # the copy_directory kills the symlinks
+      #COMMAND ${CMAKE_COMMAND} -E copy_directory ${fcCamFramework} $<TARGET_FILE_DIR:phd2>/../Frameworks/${framework1}/
+      #COMMAND ${CMAKE_COMMAND} -E copy_directory ${sbigudFramework} $<TARGET_FILE_DIR:phd2>/../Frameworks/${framework2}/
+      COMMAND mkdir -p $<TARGET_FILE_DIR:phd2>/../Frameworks/
+      COMMAND cp -R ${fcCamFramework} $<TARGET_FILE_DIR:phd2>/../Frameworks/${framework1}
+      COMMAND cp -R ${sbigudFramework} $<TARGET_FILE_DIR:phd2>/../Frameworks/${framework2}
+    )
+  else()
+    set_source_files_properties(${fcCamFramework}  PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks)  
+    set_source_files_properties(${sbigudFramework} PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks)  
+  endif()
 
 elseif(WIN32)
 
@@ -663,7 +715,6 @@ add_custom_target(CmakeAdditionalFiles
 # Installation and packaging
 #
 
-
 if(NOT APPLE)
   install (TARGETS phd2 RUNTIME DESTINATION bin)
 endif()
@@ -694,9 +745,19 @@ if(UNIX AND NOT APPLE)
              OPTIONAL)          
             
   endforeach()
+
+  set(CPACK_GENERATOR "DEB")
+  set(CPACK_DEBIAN_PACKAGE_MAINTAINER "PHD2 team")
 endif()
 
+if(APPLE)
+  install(TARGETS phd2 RUNTIME DESTINATION . BUNDLE DESTINATION .)
+  set(CPACK_GENERATOR "ZIP" "DragNDrop")
+endif()
 
-
-
+SET(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_MAJOR}")
+SET(CPACK_PACKAGE_VERSION_MINOR "${VERSION_MINOR}")
+SET(CPACK_PACKAGE_VERSION_PATCH "${VERSION_PATCH}")
+SET(CPACK_PACKAGE_VENDOR "PHD2 team")
+include(CPack)
 

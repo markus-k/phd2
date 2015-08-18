@@ -298,12 +298,12 @@ public:
     static wxString GetDefaultFileDir();
     static wxString GetDarksDir();
     bool DarkLibExists(int profileId, bool showAlert);
-    void LoadDarkLibrary();
+    bool LoadDarkLibrary();
     void SaveDarkLibrary(const wxString& note);
     void DeleteDarkLibraryFiles(int profileID);
     static wxString DarkLibFileName(int profileId);
     void SetDarkMenuState();
-    void LoadDarkHandler(bool checkIt);         // Use to also set menu item states
+    bool LoadDarkHandler(bool checkIt);         // Use to also set menu item states
     void LoadDefectMapHandler(bool checkIt);
     void CheckDarkFrameGeometry();
     static void PlaceWindowOnScreen(wxWindow *window, int x, int y);
@@ -323,21 +323,21 @@ public:
 
     struct PHD_MOVE_REQUEST
     {
-        Mount           *pMount;
-        int             duration;
-        GUIDE_DIRECTION direction;
-        bool            calibrationMove;
-        bool            normalMove;
+        Mount             *pMount;
+        int                duration;
+        GUIDE_DIRECTION    direction;
+        bool               calibrationMove;
+        MountMoveType      moveType;
         Mount::MOVE_RESULT moveResult;
-        PHD_Point       vectorEndpoint;
-        wxSemaphore     *pSemaphore;
+        PHD_Point          vectorEndpoint;
+        wxSemaphore       *pSemaphore;
     };
     void OnRequestMountMove(wxCommandEvent& evt);
 
     void ScheduleExposure(void);
 
-    void SchedulePrimaryMove(Mount *pMount, const PHD_Point& vectorEndpoint, bool normalMove=true);
-    void ScheduleSecondaryMove(Mount *pMount, const PHD_Point& vectorEndpoint, bool normalMove=true);
+    void SchedulePrimaryMove(Mount *pMount, const PHD_Point& vectorEndpoint, MountMoveType moveType);
+    void ScheduleSecondaryMove(Mount *pMount, const PHD_Point& vectorEndpoint, MountMoveType moveType);
     void ScheduleCalibrationMove(Mount *pMount, const GUIDE_DIRECTION direction, int duration);
 
     void StartCapturing(void);

@@ -1223,7 +1223,7 @@ void MyFrame::OnRequestMountMove(wxCommandEvent& evt)
     }
     else
     {
-        pRequest->moveResult = pRequest->pMount->Move(pRequest->vectorEndpoint, pRequest->normalMove);
+        pRequest->moveResult = pRequest->pMount->Move(pRequest->vectorEndpoint, pRequest->moveType);
     }
 
     pRequest->pSemaphore->Post();
@@ -1256,38 +1256,38 @@ void MyFrame::ScheduleExposure(void)
     m_pPrimaryWorkerThread->EnqueueWorkerThreadExposeRequest(img, exposureDuration, exposureOptions, subframe);
 }
 
-void MyFrame::SchedulePrimaryMove(Mount *pMount, const PHD_Point& vectorEndpoint, bool normalMove)
+void MyFrame::SchedulePrimaryMove(Mount *pMount, const PHD_Point& vectorEndpoint, MountMoveType moveType)
 {
-    wxCriticalSectionLocker lock(m_CSpWorkerThread);
+    Debug.AddLine("SchedulePrimaryMove(%p, x=%.2f, y=%.2f, type=%d)", pMount, vectorEndpoint.X, vectorEndpoint.Y, moveType);
 
-    Debug.AddLine("SchedulePrimaryMove(%p, x=%.2f, y=%.2f, normal=%d)", pMount, vectorEndpoint.X, vectorEndpoint.Y, normalMove);
+    wxCriticalSectionLocker lock(m_CSpWorkerThread);
 
     assert(pMount);
     pMount->IncrementRequestCount();
 
     assert(m_pPrimaryWorkerThread);
-    m_pPrimaryWorkerThread->EnqueueWorkerThreadMoveRequest(pMount, vectorEndpoint, normalMove);
+    m_pPrimaryWorkerThread->EnqueueWorkerThreadMoveRequest(pMount, vectorEndpoint, moveType);
 }
 
-void MyFrame::ScheduleSecondaryMove(Mount *pMount, const PHD_Point& vectorEndpoint, bool normalMove)
+void MyFrame::ScheduleSecondaryMove(Mount *pMount, const PHD_Point& vectorEndpoint, MountMoveType moveType)
 {
-    wxCriticalSectionLocker lock(m_CSpWorkerThread);
+    Debug.AddLine("ScheduleSecondaryMove(%p, x=%.2f, y=%.2f, type=%d)", pMount, vectorEndpoint.X, vectorEndpoint.Y, moveType);
 
-    Debug.AddLine("ScheduleSecondaryMove(%p, x=%.2f, y=%.2f, normal=%d)", pMount, vectorEndpoint.X, vectorEndpoint.Y, normalMove);
+    wxCriticalSectionLocker lock(m_CSpWorkerThread);
 
     assert(pMount);
 
     if (pMount->SynchronousOnly())
     {
         // some mounts must run on the Primary thread even if the secondary is requested.
-        SchedulePrimaryMove(pMount, vectorEndpoint, normalMove);
+        SchedulePrimaryMove(pMount, vectorEndpoint, moveType);
     }
     else
     {
         pMount->IncrementRequestCount();
 
         assert(m_pSecondaryWorkerThread);
-        m_pSecondaryWorkerThread->EnqueueWorkerThreadMoveRequest(pMount, vectorEndpoint, normalMove);
+        m_pSecondaryWorkerThread->EnqueueWorkerThreadMoveRequest(pMount, vectorEndpoint, moveType);
     }
 }
 
@@ -1750,6 +1750,7 @@ static bool load_multi_darks(GuideCamera *camera, const wxString& fname)
     bool bError = false;
     fitsfile *fptr = 0;
     int status = 0;  // CFITSIO status value MUST be initialized to zero!
+    long last_frame_size [] = { -1L, -1L };
 
     try
     {
@@ -1783,6 +1784,16 @@ static bool load_multi_darks(GuideCamera *camera, const wxString& fname)
 
                 long fsize[2];
                 fits_get_img_size(fptr, 2, fsize, &status);
+                if (last_frame_size[0] != -1L)
+                {
+                    if (last_frame_size[0] != fsize[0] || last_frame_size[1] != fsize[1])
+                    {
+                        pFrame->Alert(_("Existing dark library has frames with incompatible formats - please rebuild the dark library from scratch."));
+                        throw ERROR_INFO("Incompatible frame sizes in dark library");
+                    }
+                }
+                last_frame_size[0] = fsize[0];
+                last_frame_size[1] = fsize[1];
 
                 std::auto_ptr<usImage> img(new usImage());
 
@@ -1869,6 +1880,7 @@ bool MyFrame::DarkLibExists(int profileId, bool showAlert)
         if (sensorSize == UNDEFINED_FRAME_SIZE)
         {
             bOk = true;
+            Debug.AddLine("DarkLib check: undefined frame size for current camera");
         }
         else
         {
@@ -1881,11 +1893,18 @@ bool MyFrame::DarkLibExists(int profileId, bool showAlert)
                 fits_get_img_size(fptr, 2, fsize, &status);
                 if (status == 0 && fsize[0] == sensorSize.x && fsize[1] == sensorSize.y)
                     bOk = true;
-                else if (showAlert)
-                    Alert(_("Dark library does not match the camera in this profile - it needs to be replaced."));
+                else
+                {
+                    Debug.AddLine(wxString::Format("DarkLib check: failed geometry check - fits status = %d, cam dimensions = {%d,%d}, "
+                        " dark dimensions = {%d,%d}", status, sensorSize.x, sensorSize.y, fsize[0], fsize[1]));
+                    if (showAlert)
+                        Alert(_("Dark library does not match the camera in this profile - it needs to be replaced."));
+                }
 
                 PHD_fits_close_file(fptr);
             }
+            else
+                Debug.AddLine(wxString::Format("DarkLib check: fitsio error on open_diskfile = %d", status));
         }
     }
 
@@ -1941,26 +1960,28 @@ void MyFrame::SetDarkMenuState()
         item->Check(false);
 }
 
-void MyFrame::LoadDarkLibrary()
+bool MyFrame::LoadDarkLibrary()
 {
     wxString filename = MyFrame::DarkLibFileName(pConfig->GetCurrentProfileId());
 
     if (!pCamera || !pCamera->Connected)
     {
         Alert(_("You must connect a camera before loading dark frames"));
-        return;
+        return false;
     }
 
     if (load_multi_darks(pCamera, filename))
     {
         Debug.AddLine(wxString::Format("failed to load dark frames from %s", filename));
         SetStatusText(_("Darks not loaded"));
+        return false;
     }
     else
     {
         Debug.AddLine(wxString::Format("loaded dark library from %s", filename));
         pCamera->SelectDark(m_exposureDuration);
         SetStatusText(_("Darks loaded"));
+        return true;
     }
 }
 
