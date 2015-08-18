@@ -147,8 +147,6 @@ public:
 
     virtual const wxSize& DarkFrameSize() { return FullSize; }
 
-    virtual const wxSize& DarkFrameSize() { return FullSize; }
-
 protected:
 
     virtual int GetCameraGain(void);
