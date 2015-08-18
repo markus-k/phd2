@@ -727,7 +727,8 @@ void GuideGaussianProcess::HandleModifiedMeasurements(double input)
          */
         parameters->get_last_point().modified_measurement = input // the current displacement should have been corrected for 
             + parameters->get_second_last_point().control // we already did control in the last step, we have to add this
-            - parameters->get_second_last_point().measurement; // if we previously weren't at zero, we have to subtract the offset
+            - parameters->get_second_last_point().measurement // if we previously weren't at zero, we have to subtract the offset
+            + parameters->get_second_last_point().modified_measurement; // this is the integration step
     }
 }
 
@@ -785,7 +786,7 @@ double GuideGaussianProcess::result(double input)
         next_location << current_time / 1000.0,
             (current_time + delta_controller_time_ms) / 1000.0;
         Eigen::VectorXd prediction = parameters->gp_.predict(next_location).first;
-        
+
         // the prediction is consisting of GP prediction and the linear drift
         prediction_ = (prediction(1) - prediction(0)) + (delta_controller_time_ms / 1000)*weights(1);
         parameters->control_signal_ += (1-parameters->mixing_parameter_)*prediction_; // mix in the prediction
