@@ -132,7 +132,7 @@ void Mount::MountConfigDialogPane::LayoutControls(wxPanel *pParent, BrainCtrlIdM
         {
             _("None"), _("Hysteresis"), _("Lowpass"), _("Lowpass2"), _("Resist Switch"),
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
-            _("Gaussian Process"),
+        _("Gaussian Process"), _("Linear Regression"),
 #endif
         };
 
@@ -161,7 +161,7 @@ void Mount::MountConfigDialogPane::LayoutControls(wxPanel *pParent, BrainCtrlIdM
         {
             _("None"), _("Hysteresis"), _("Lowpass"), _("Lowpass2"), _("Resist Switch"),
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
-            _("Gaussian Process"),
+        _("Gaussian Process"), _("Linear Regression"),
 #endif
         };
         width = StringArrayWidth(yAlgorithms, WXSIZEOF(yAlgorithms));
@@ -428,8 +428,9 @@ bool Mount::CreateGuideAlgorithm(int guideAlgorithm, Mount *mount, GuideAxis axi
             case GUIDE_ALGORITHM_LOWPASS:
             case GUIDE_ALGORITHM_LOWPASS2:
             case GUIDE_ALGORITHM_RESIST_SWITCH:
-#if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)            
+#if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
             case GUIDE_ALGORITHM_GAUSSIAN_PROCESS:
+            case GUIDE_ALGORITHM_LINEAR_REGRESSION:
 #endif
                 break;
             case GUIDE_ALGORITHM_NONE:
@@ -462,10 +463,13 @@ bool Mount::CreateGuideAlgorithm(int guideAlgorithm, Mount *mount, GuideAxis axi
         case GUIDE_ALGORITHM_RESIST_SWITCH:
             *ppAlgorithm = new GuideAlgorithmResistSwitch(mount, axis);
             break;
-            
-#if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)            
+
+#if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
         case GUIDE_ALGORITHM_GAUSSIAN_PROCESS:
             *ppAlgorithm = new GuideGaussianProcess(mount, axis);
+            break;
+        case GUIDE_ALGORITHM_LINEAR_REGRESSION:
+            *ppAlgorithm = new GuideLinearRegression(mount, axis);
             break;
 #endif
 
