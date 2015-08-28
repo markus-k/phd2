@@ -259,7 +259,7 @@ wxString GuideLinearRegression::GetSettingsSummary()
 
     return wxString::Format(
       format,
-      GetControlGain();
+      GetControlGain());
 }
 
 
@@ -294,7 +294,8 @@ void GuideLinearRegression::HandleControls(double control_input)
     }
     else
     {
-        parameters->get_last_point().control
+        parameters->get_last_point().control = parameters->get_second_last_point().control + control_input;
+    }
 }
 
 void GuideLinearRegression::HandleModifiedMeasurements(double input)
@@ -343,11 +344,11 @@ double GuideLinearRegression::result(double input)
             // we combine both the integrated control and the residual error here, since it reflects the overall error
             if (parameters->get_number_of_measurements() == 1)
             {
-                measurements(i) = circular_buffer_parameters[i].measurement; // for the first data point, there is no control value
+                measurements(i) = parameters->circular_buffer_parameters[i].measurement; // for the first data point, there is no control value
             }
             else
             {
-                measurements(i) = parameters->circular_buffer_parameters[i-1].control + circular_buffer_parameters[i].measurement;
+                measurements(i) = parameters->circular_buffer_parameters[i-1].control + parameters->circular_buffer_parameters[i].measurement;
             }
         }
 
@@ -358,7 +359,7 @@ double GuideLinearRegression::result(double input)
 
         // this is the inference for linear regression
         Eigen::VectorXd weights = (feature_matrix*feature_matrix.transpose()
-            + 1e-3*Eigen::Matrix<double, 2, 2>::Identity()).ldlt().solve(feature_matrix*mod_measurements);
+            + 1e-3*Eigen::Matrix<double, 2, 2>::Identity()).ldlt().solve(feature_matrix*measurements);
 
         // the prediction is only linear drift here
         prediction_ = (delta_controller_time_ms / 1000)*weights(1);
@@ -391,11 +392,11 @@ double GuideLinearRegression::deduceResult(void)
             // we combine both the integrated control and the residual error here, since it reflects the overall error
             if (parameters->get_number_of_measurements() == 1)
             {
-                measurements(i) = circular_buffer_parameters[i].measurement; // for the first data point, there is no control value
+                measurements(i) = parameters->circular_buffer_parameters[i].measurement; // for the first data point, there is no control value
             }
             else
             {
-                measurements(i) = parameters->circular_buffer_parameters[i-1].control + circular_buffer_parameters[i].measurement;
+                measurements(i) = parameters->circular_buffer_parameters[i-1].control + parameters->circular_buffer_parameters[i].measurement;
             }
         }
 
@@ -406,7 +407,7 @@ double GuideLinearRegression::deduceResult(void)
 
         // this is the inference for linear regression
         Eigen::VectorXd weights = (feature_matrix*feature_matrix.transpose()
-        + 1e-3*Eigen::Matrix<double, 2, 2>::Identity()).ldlt().solve(feature_matrix*mod_measurements);
+        + 1e-3*Eigen::Matrix<double, 2, 2>::Identity()).ldlt().solve(feature_matrix*measurements);
 
         // the prediction is only linear drift here
         prediction_ = (delta_controller_time_ms / 1000)*weights(1);
