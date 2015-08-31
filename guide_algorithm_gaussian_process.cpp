@@ -721,7 +721,6 @@ void GuideGaussianProcess::HandleTimestamps()
 // adds a new measurement to the circular buffer that holds the data.
 void GuideGaussianProcess::HandleMeasurements(double input)
 {
-
     parameters->get_last_point().measurement = input;
 }
 
@@ -782,7 +781,7 @@ double GuideGaussianProcess::PredictGearError()
     Eigen::VectorXd prediction = parameters->gp_.predict(next_location).first;
 
     // the prediction is consisting of GP prediction and the linear drift
-    return (prediction(1) - prediction(0)) + (delta_controller_time_ms / 1000)*weights(1);
+    return (delta_controller_time_ms / 1000.0)*weights(1);
 }
 
 
@@ -938,7 +937,6 @@ double GuideGaussianProcess::deduceResult()
 
     return parameters->control_signal_;
 }
-
 
 void GuideGaussianProcess::reset()
 {
