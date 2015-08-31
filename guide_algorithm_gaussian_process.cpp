@@ -62,6 +62,7 @@ class GuideGaussianProcess::GuideGaussianProcessDialogPane : public ConfigDialog
     wxSpinCtrlDouble *m_pPKPeriodLength;
     wxSpinCtrlDouble *m_pPKSignalVariance;
     wxSpinCtrlDouble *m_pSEKLengthScale;
+    wxSpinCtrlDouble *m_pSEKSignalVariance;
     wxSpinCtrlDouble *m_pMixingParameter;
 
     wxCheckBox       *m_checkboxOptimization;
@@ -96,23 +97,26 @@ public:
                                                 wxSP_ARROW_KEYS, 0.0, 100, 5.0, 0.1);
         m_pPKLengthScale->SetDigits(2);
 
-
-
         m_pPKPeriodLength = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                                  wxDefaultPosition,wxSize(width+30, -1),
-                                                 wxSP_ARROW_KEYS, 0.0, 2000, 200, 1);
+                                                 wxSP_ARROW_KEYS, 0.0, 2000, 500, 1);
         m_pPKPeriodLength->SetDigits(2);
 
 
         m_pPKSignalVariance = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                                    wxDefaultPosition,wxSize(width+30, -1),
-                                                   wxSP_ARROW_KEYS, 0.0, 30, 10, 0.1);
+                                                   wxSP_ARROW_KEYS, 0.0, 30, 1, 0.1);
         m_pPKSignalVariance->SetDigits(2);
 
         m_pSEKLengthScale = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                                  wxDefaultPosition,wxSize(width+30, -1),
                                                  wxSP_ARROW_KEYS, 0.0, 6000, 500, 0.1);
         m_pSEKLengthScale->SetDigits(2);
+
+        m_pSEKSignalVariance = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
+                                                 wxDefaultPosition,wxSize(width+30, -1),
+                                                 wxSP_ARROW_KEYS, 0.0, 30, 1, 0.1);
+        m_pSEKSignalVariance->SetDigits(2);
 
         // nb points between consecutive calls to the optimisation
         m_pNbPointsOptimisation = new wxSpinCtrl(pParent, wxID_ANY, wxEmptyString,
@@ -150,12 +154,14 @@ public:
         DoAdd(_("Period length [PER]"), m_pPKPeriodLength,
               _("The period length of the periodic error component that should be corrected. It turned out that the shorter "
                 "period is more important for the performance than the long one, if a telescope mount shows both. Default = 200"));
-        DoAdd(_("Signal variance"), m_pPKSignalVariance,
+        DoAdd(_("Signal variance [PER]"), m_pPKSignalVariance,
               _("The width of the periodic error. Should be around the amplitude of the PE curve, but is not a critical parameter. "
                 "Default = 30"));
         DoAdd(_("Length scale [SE]"), m_pSEKLengthScale,
               _("The length scale of the large periodic or non-periodic structure in the error. This is essentially a low-pass "
-                "filter and the length scale defines the corner frequency. Default = 500"));
+                "filter and the length scale defines the corner frequency. Default = 10"));
+        DoAdd(_("Signal Variance [SE]"), m_pSEKSignalVariance,
+              _("Signal Variance of the small variations. Default = 1"));
         DoAdd(_("Mixing"), m_pMixingParameter,
               _("The mixing defines how much control signal is generated from the prediction (low-pass component) and how much "
                 "from the current measurement (high-pass component). Default = 0.8"));
@@ -181,13 +187,14 @@ public:
       m_pNbPointsOptimisation->SetValue(m_pGuideAlgorithm->GetNbPointsBetweenOptimisation());
 
       std::vector<double> hyperparameters = m_pGuideAlgorithm->GetGPHyperparameters();
-      assert(hyperparameters.size() == 5);
+      assert(hyperparameters.size() == 6);
 
       m_pHyperDiracNoise->SetValue(hyperparameters[0]);
       m_pPKLengthScale->SetValue(hyperparameters[1]);
       m_pPKPeriodLength->SetValue(hyperparameters[2]);
       m_pPKSignalVariance->SetValue(hyperparameters[3]);
       m_pSEKLengthScale->SetValue(hyperparameters[4]);
+      m_pSEKSignalVariance->SetValue(hyperparameters[5]);
 
       m_pMixingParameter->SetValue(m_pGuideAlgorithm->GetMixingParameter());
 
@@ -202,13 +209,14 @@ public:
       m_pGuideAlgorithm->SetNbElementForInference(m_pNbMeasurementMin->GetValue());
       m_pGuideAlgorithm->SetNbPointsBetweenOptimisation(m_pNbPointsOptimisation->GetValue());
 
-      std::vector<double> hyperparameters(5);
+      std::vector<double> hyperparameters(6);
 
       hyperparameters[0] = m_pHyperDiracNoise->GetValue();
       hyperparameters[1] = m_pPKLengthScale->GetValue();
       hyperparameters[2] = m_pPKPeriodLength->GetValue();
       hyperparameters[3] = m_pPKSignalVariance->GetValue();
       hyperparameters[4] = m_pSEKLengthScale->GetValue();
+      hyperparameters[5] = m_pSEKSignalVariance->GetValue();
 
       m_pGuideAlgorithm->SetGPHyperparameters(hyperparameters);
       m_pGuideAlgorithm->SetMixingParameter(m_pMixingParameter->GetValue());
@@ -252,7 +260,7 @@ struct GuideGaussianProcess::gp_guide_parameters
     UDPGuidingInteraction udpInteraction_;
 #endif
 
-    covariance_functions::PeriodicSquareExponential covariance_function_;
+    covariance_functions::SquareExponentialPeriodic covariance_function_;
     GP gp_;
 
     gp_guide_parameters() :
@@ -311,8 +319,9 @@ static const int    DefaultNbMinPointsForInference      = 25; // minimal number 
 static const double DefaultGaussianNoiseHyperparameter  = 1.0; // default Gaussian process noise
 static const double DefaultLengthScalePerKer            = 5.0; // length-scale of the periodic kernel
 static const double DefaultPeriodLengthPerKer           = 200; // P_p, period-length of the periodic kernel
-static const double DefaultSignalVariancePerKer         = 10; // signal-variance of the periodic kernel
-static const double DefaultLengthScaleSEKer             = 500; // length-scale of the SE-kernel
+static const double DefaultSignalVariancePerKer         = 1.0; // signal-variance of the periodic kernel
+static const double DefaultLengthScaleSEKer             = 10; // length-scale of the SE-kernel
+static const double DefaultSignalVarianceSEKer          = 1.0; // length-scale of the SE-kernel
 
 static const int    DefaultNbMinPointsForOptimisation   = 50; // minimal number of points for doing the optimization
 static const double DefaultMixing                       = 0.8;
@@ -340,12 +349,13 @@ GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
     double mixing_parameter = pConfig->Profile.GetDouble(configPath + "/gp_mixing_parameter", DefaultMixing);
     SetMixingParameter(mixing_parameter);
 
-    std::vector<double> v_hyperparameters(5);
+    std::vector<double> v_hyperparameters(6);
     v_hyperparameters[0] = pConfig->Profile.GetDouble(configPath + "/gp_gaussian_noise",        DefaultGaussianNoiseHyperparameter);
     v_hyperparameters[1] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_per_kern", DefaultLengthScalePerKer);
     v_hyperparameters[2] = pConfig->Profile.GetDouble(configPath + "/gp_period_per_kern",       DefaultPeriodLengthPerKer);
     v_hyperparameters[3] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_per_kern",       DefaultSignalVariancePerKer);
     v_hyperparameters[4] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_se_kern",  DefaultLengthScaleSEKer);
+    v_hyperparameters[5] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_se_kern",        DefaultSignalVarianceSEKer);
 
     SetGPHyperparameters(v_hyperparameters);
 
@@ -357,8 +367,8 @@ GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
 
 
     // set masking, so that we only optimize the period length. The rest is fixed or estimated otherwise.
-    Eigen::VectorXi mask(5);
-    mask << 0, 0, 1, 0, 0;
+    Eigen::VectorXi mask(6);
+    mask << 0, 0, 1, 0, 0, 0;
     parameters->gp_.setOptimizationMask(mask);
 
     // set a strong logistic prior (soft box) to prevent the period length from being too small.
@@ -465,12 +475,11 @@ bool GuideGaussianProcess::SetNbPointsBetweenOptimisation(int nb_points)
 
 bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyperparameters)
 {
-    if(hyperparameters.size() != 5)
+    if(hyperparameters.size() != 6)
         return false;
 
     Eigen::VectorXd hyperparameters_eig = Eigen::VectorXd::Map(&hyperparameters[0], hyperparameters.size());
     bool error = false;
-
 
     // we do this check in sequence: maybe there would be additional checks on this later.
 
@@ -563,6 +572,21 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
 
     pConfig->Profile.SetDouble(GetConfigPath() + "/gp_length_scale_se_kern", hyperparameters_eig(4));
 
+    // signal variance SE kernel
+    try
+    {
+        if (hyperparameters_eig(5) < 0)
+        {
+            throw ERROR_INFO("invalid signal variance for the SE kernel");
+        }
+    }
+    catch (wxString Msg)
+    {
+        POSSIBLY_UNUSED(Msg);
+        error = true;
+        hyperparameters_eig(5) = DefaultSignalVarianceSEKer;
+    }
+
     // note that the GP class works in log space! Thus, we have to convert the parameters to log.
     parameters->gp_.setHyperParameters(hyperparameters_eig.array().log());
     return error;
@@ -631,7 +655,7 @@ std::vector<double> GuideGaussianProcess::GetGPHyperparameters() const
 
     // we need to map the Eigen::vector into a std::vector.
     return std::vector<double>(hyperparameters.data(), // the first element is at the array address
-                               hyperparameters.data() + 5); // 6 parameters, therefore the last is at position 5
+                               hyperparameters.data() + 6); // 7 parameters, therefore the last is at position 5
 }
 
 double GuideGaussianProcess::GetMixingParameter() const
@@ -657,8 +681,9 @@ wxString GuideGaussianProcess::GetSettingsSummary()
       "\tGP noise = %.3f\n"
       "\tLength scale periodic kern = %.3f\n"
       "\tPeriod Length periodic kern = %.3f\n"
-      "\tSignal-variance periodic kern = %.3f\n"
+      "\tSignal variance periodic kern = %.3f\n"
       "\tLength scale SE kern = %.3f\n"
+      "\tSignal variance SE kern = %.3f\n"
       "Optimisation called every = %.3d points\n"
       "Mixing parameter = %.3d\n"
     ;
@@ -670,7 +695,7 @@ wxString GuideGaussianProcess::GetSettingsSummary()
       GetControlGain(),
       hyperparameters(0), hyperparameters(1),
       hyperparameters(2), hyperparameters(3),
-      hyperparameters(4),
+      hyperparameters(4), hyperparameters(5),
       parameters->min_points_for_optimisation,
       parameters->mixing_parameter_);
 }
