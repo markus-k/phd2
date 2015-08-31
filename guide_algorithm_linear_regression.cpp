@@ -128,7 +128,8 @@ struct GuideLinearRegression::lr_guide_parameters
       filtered_signal_(0.0),
       min_nb_element_for_inference(0)
     {
-
+        circular_buffer_parameters.push_front(data_points());
+        circular_buffer_parameters[0].control = 0; // the first control is always zero
     }
 
     data_points& get_last_point()
@@ -154,10 +155,11 @@ struct GuideLinearRegression::lr_guide_parameters
     void clear()
     {
       circular_buffer_parameters.clear();
+      circular_buffer_parameters.push_front(data_points());
+      circular_buffer_parameters[0].control = 0; // the first control is always zero
     }
 
 };
-
 
 
 static const double DefaultControlGain = 1.0;           // control gain
@@ -189,7 +191,6 @@ ConfigDialogPane *GuideLinearRegression::GetConfigDialogPane(wxWindow *pParent)
 {
     return new GuideLinearRegressionDialogPane(pParent, this);
 }
-
 
 
 bool GuideLinearRegression::SetControlGain(double control_gain)
@@ -288,84 +289,57 @@ void GuideLinearRegression::HandleMeasurements(double input)
 
 void GuideLinearRegression::HandleControls(double control_input)
 {
-    if(parameters->get_number_of_measurements() <= 1)
-    {
-        parameters->get_last_point().control = control_input;
-    }
-    else
-    {
-        parameters->get_last_point().control = parameters->get_second_last_point().control + control_input;
-    }
+    parameters->get_last_point().control = control_input;
 }
 
-void GuideLinearRegression::HandleModifiedMeasurements(double input)
+double GuideLinearRegression::PredictDriftError()
 {
-    if(parameters->get_number_of_measurements() <= 1)
+    int delta_controller_time_ms = pFrame->RequestedExposureDuration();
+
+    int N = parameters->get_number_of_measurements();
+
+    // initialize the different vectors needed for the GP
+    Eigen::VectorXd timestamps(N);
+    Eigen::VectorXd measurements(N);
+    Eigen::VectorXd sum_controls(N);
+    Eigen::VectorXd gear_error(N);
+    Eigen::VectorXd linear_fit(N);
+
+    // transfer the data from the circular buffer to the Eigen::Vectors
+    for(size_t i = 0; i < N; i++)
     {
-        // At step one, ideal would have been to know this error in advance and correct it.
-        parameters->get_last_point().modified_measurement = input;
+        timestamps(i) = parameters->circular_buffer_parameters[i].timestamp;
+        measurements(i) = parameters->circular_buffer_parameters[i].measurement;
+        sum_controls(i) = parameters->circular_buffer_parameters[i].control;
+        if(i > 0)
+        {
+            sum_controls(i) += sum_controls(i-1); // sum over the control signals
+        }
     }
-    else
-    {
-        /* Later, we already did some control action. Therefore, we have to sum over the past control signal.
-         *
-         * The ideal control signal is what would have been needed to keep a zero error at zero.
-         */
-        parameters->get_last_point().modified_measurement = input // the current displacement should have been corrected for
-            + parameters->get_second_last_point().control // we already did control in the last step, we have to add this
-            - parameters->get_second_last_point().measurement // if we previously weren't at zero, we have to subtract the offset
-            + parameters->get_second_last_point().modified_measurement; // this is the integration step
-    }
+    gear_error = sum_controls + measurements; // for each time step, add the residual error
+
+    // linear least squares regression for offset and drift
+    Eigen::MatrixXd feature_matrix(2, N-1);
+    feature_matrix.row(0) = timestamps.array().pow(0); // easier to understand than ones
+    feature_matrix.row(1) = timestamps.array(); // .pow(1) would be kinda useless
+
+    // this is the inference for linear regression
+    Eigen::VectorXd weights = (feature_matrix*feature_matrix.transpose()
+    + 1e-3*Eigen::Matrix<double, 2, 2>::Identity()).ldlt().solve(feature_matrix*gear_error);
+
+    // the prediction is consisting of GP prediction and the linear drift
+    return (delta_controller_time_ms / 1000.0)*weights(1);
 }
 
 double GuideLinearRegression::result(double input)
 {
-    parameters->add_one_point();
     HandleMeasurements(input);
     HandleTimestamps();
 
-    int delta_controller_time_ms = pFrame->RequestedExposureDuration();
-
     parameters->control_signal_ = parameters->control_gain_*input; // add the measured part of the controller
-    double prediction_ = 0.0; // this will hold the prediction part later
+    parameters->control_signal_ += PredictDriftError(); // add in the prediction
 
-    // initialize the different vectors needed for the linear regression
-    Eigen::VectorXd timestamps(parameters->get_number_of_measurements());
-    Eigen::VectorXd measurements(parameters->get_number_of_measurements());
-
-    // check if we are allowed to use the LR
-    if (parameters->min_nb_element_for_inference > 0 &&
-        parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference)
-    {
-        // transfer the data from the circular buffer to the Eigen::Vectors
-        for(size_t i = 0; i < parameters->get_number_of_measurements(); i++)
-        {
-            timestamps(i) = parameters->circular_buffer_parameters[i].timestamp;
-            // we combine both the integrated control and the residual error here, since it reflects the overall error
-            if (parameters->get_number_of_measurements() == 1)
-            {
-                measurements(i) = parameters->circular_buffer_parameters[i].measurement; // for the first data point, there is no control value
-            }
-            else
-            {
-                measurements(i) = parameters->circular_buffer_parameters[i-1].control + parameters->circular_buffer_parameters[i].measurement;
-            }
-        }
-
-        // linear least squares regression for offset and drift
-        Eigen::MatrixXd feature_matrix(2, parameters->get_number_of_measurements()-1);
-        feature_matrix.row(0) = timestamps.array().pow(0);
-        feature_matrix.row(1) = timestamps.array(); // .pow(1) would be kinda useless
-
-        // this is the inference for linear regression
-        Eigen::VectorXd weights = (feature_matrix*feature_matrix.transpose()
-            + 1e-3*Eigen::Matrix<double, 2, 2>::Identity()).ldlt().solve(feature_matrix*measurements);
-
-        // the prediction is only linear drift here
-        prediction_ = (delta_controller_time_ms / 1000)*weights(1);
-        parameters->control_signal_ += prediction_; // add in the prediction
-    }
-
+    parameters->add_one_point();
     HandleControls(parameters->control_signal_);
 
     return parameters->control_signal_;
@@ -373,47 +347,10 @@ double GuideLinearRegression::result(double input)
 
 double GuideLinearRegression::deduceResult(void)
 {
-    int delta_controller_time_ms = pFrame->RequestedExposureDuration();
+    parameters->control_signal_ = 0;
+    parameters->control_signal_ += PredictDriftError(); // add in the prediction
 
-    double prediction_ = 0.0; // this will hold the prediction part later
-
-    // initialize the different vectors needed for the linear regression
-    Eigen::VectorXd timestamps(parameters->get_number_of_measurements());
-    Eigen::VectorXd measurements(parameters->get_number_of_measurements());
-
-    // check if we are allowed to use the LR
-    if (parameters->min_nb_element_for_inference > 0 &&
-        parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference)
-    {
-        // transfer the data from the circular buffer to the Eigen::Vectors
-        for(size_t i = 0; i < parameters->get_number_of_measurements(); i++)
-        {
-            timestamps(i) = parameters->circular_buffer_parameters[i].timestamp;
-            // we combine both the integrated control and the residual error here, since it reflects the overall error
-            if (parameters->get_number_of_measurements() == 1)
-            {
-                measurements(i) = parameters->circular_buffer_parameters[i].measurement; // for the first data point, there is no control value
-            }
-            else
-            {
-                measurements(i) = parameters->circular_buffer_parameters[i-1].control + parameters->circular_buffer_parameters[i].measurement;
-            }
-        }
-
-        // linear least squares regression for offset and drift
-        Eigen::MatrixXd feature_matrix(2, parameters->get_number_of_measurements()-1);
-        feature_matrix.row(0) = timestamps.array().pow(0);
-        feature_matrix.row(1) = timestamps.array(); // .pow(1) would be kinda useless
-
-        // this is the inference for linear regression
-        Eigen::VectorXd weights = (feature_matrix*feature_matrix.transpose()
-        + 1e-3*Eigen::Matrix<double, 2, 2>::Identity()).ldlt().solve(feature_matrix*measurements);
-
-        // the prediction is only linear drift here
-        prediction_ = (delta_controller_time_ms / 1000)*weights(1);
-        parameters->control_signal_ = prediction_; // add in the prediction
-    }
-
+    parameters->add_one_point();
     HandleControls(parameters->control_signal_);
 
     return parameters->control_signal_;
