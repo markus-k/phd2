@@ -87,6 +87,7 @@ public:
 
     virtual ConfigDialogPane *GetConfigDialogPane(wxWindow *pParent);
     virtual double result(double input);
+    virtual double deduceResult(void);
     virtual void reset();
     virtual wxString GetSettingsSummary();
     virtual wxString GetGuideAlgorithmClassName(void) const { return "Gaussian Process"; }

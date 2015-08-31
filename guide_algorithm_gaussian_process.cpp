@@ -898,6 +898,22 @@ double GuideGaussianProcess::result(double input)
     return parameters->control_signal_;
 }
 
+double GuideGaussianProcess::deduceResult()
+{
+    parameters->control_signal_ = 0;
+    // check if we are allowed to use the GP
+    if (parameters->min_nb_element_for_inference > 0 &&
+        parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference)
+    {
+        parameters->control_signal_ += PredictGearError();
+    }
+
+    parameters->add_one_point(); // add new point here, since the applied control is important as well
+    HandleControls(parameters->control_signal_);
+
+    return parameters->control_signal_;
+}
+
 
 void GuideGaussianProcess::reset()
 {
