@@ -737,14 +737,14 @@ double GuideGaussianProcess::PredictGearError()
     int N = parameters->get_number_of_measurements();
 
     // initialize the different vectors needed for the GP
-    Eigen::VectorXd timestamps(N);
-    Eigen::VectorXd measurements(N);
-    Eigen::VectorXd sum_controls(N);
-    Eigen::VectorXd gear_error(N);
-    Eigen::VectorXd linear_fit(N);
+    Eigen::VectorXd timestamps(N-1);
+    Eigen::VectorXd measurements(N-1);
+    Eigen::VectorXd sum_controls(N-1);
+    Eigen::VectorXd gear_error(N-1);
+    Eigen::VectorXd linear_fit(N-1);
 
     // transfer the data from the circular buffer to the Eigen::Vectors
-    for(size_t i = 0; i < N; i++)
+    for(size_t i = 0; i < N-1; i++)
     {
         timestamps(i) = parameters->circular_buffer_parameters[i].timestamp;
         measurements(i) = parameters->circular_buffer_parameters[i].measurement;
