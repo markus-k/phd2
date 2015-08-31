@@ -58,6 +58,7 @@ enum paramIndices { LengthScalePIndex,
                     PeriodLengthPIndex,
                     SignalVariancePIndex,
                     LengthScaleSEIndex,
+                    SignalVarianceSEIndex,
                     TauIndex
                   };
 
@@ -125,6 +126,36 @@ public:
   virtual CovFunc* clone() const = 0;
 };
 
+
+/* SquareExponential + Periodic*/
+class SquareExponentialPeriodic : public CovFunc {
+private:
+    Eigen::VectorXd hyperParameters;
+
+public:
+    SquareExponentialPeriodic();
+    explicit SquareExponentialPeriodic(const Eigen::VectorXd& hyperParameters);
+
+    covariance_functions::MatrixStdVecPair evaluate(
+        const Eigen::VectorXd& x1,
+        const Eigen::VectorXd& x2);
+
+    //! Method to set the hyper-parameters.
+    void setParameters(const Eigen::VectorXd& params);
+
+    //! Returns the hyper-parameters.
+    const Eigen::VectorXd& getParameters() const;
+
+    //! Returns the number of hyper-parameters.
+    int getParameterCount() const;
+
+    /**
+     * Produces a clone to be able to copy the object.
+     */
+    virtual CovFunc* clone() const {
+        return new SquareExponentialPeriodic(*this);
+    }
+};
 
 /*!
  * The function computes the combined Kernel k_p * k_se and their derivatives.
