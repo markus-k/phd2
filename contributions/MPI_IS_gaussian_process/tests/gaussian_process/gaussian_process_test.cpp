@@ -457,6 +457,105 @@ TEST_F(GPTest, CovarianceDerivativeTest3) {
     }
 }
 
+TEST_F(GPTest, CovarianceTest4) {
+    Eigen::Matrix<double,5,1> hyperParams;
+    hyperParams << 10, 1, 1, 80, 1;
+    hyperParams = hyperParams.array().log();
+
+    Eigen::VectorXd locations(5), X(3), Y(3);
+    locations << 0, 50, 100, 150, 200;
+    X << 0, 100, 200;
+
+    covariance_functions::SquareExponentialPeriodic covFunc(hyperParams);
+
+    Eigen::MatrixXd kxx_matlab(5, 5);
+    kxx_matlab <<
+    2.00000,1.82258,1.45783,1.17242,1.04394,
+    1.82258,2.00000,1.82258,1.45783,1.17242,
+    1.45783,1.82258,2.00000,1.82258,1.45783,
+    1.17242,1.45783,1.82258,2.00000,1.82258,
+    1.04394,1.17242,1.45783,1.82258,2.00000;
+
+    Eigen::MatrixXd kxX_matlab(5, 3);
+    kxX_matlab <<
+    2.00000,1.45783,1.04394,1.82258,1.82258,
+    1.17242,1.45783,2.00000,1.45783,1.17242,
+    1.82258,1.82258,1.04394,1.45783,2.00000;
+
+    Eigen::MatrixXd kXX_matlab(3, 3);
+    kXX_matlab <<
+    2.00000,1.45783,1.04394,
+    1.45783,2.00000,1.45783,
+    1.04394,1.45783,2.00000;
+
+    Eigen::MatrixXd kxx = covFunc.evaluate(locations, locations).first;
+    Eigen::MatrixXd kxX = covFunc.evaluate(locations, X).first;
+    Eigen::MatrixXd kXX = covFunc.evaluate(X, X).first;
+
+    for (int col = 0; col < kxx.cols(); col++) {
+        for (int row = 0; row < kxx.rows(); row++) {
+            EXPECT_NEAR(kxx(row, col), kxx_matlab(row, col), 0.01);
+        }
+    }
+
+    for (int col = 0; col < kxX.cols(); col++) {
+        for (int row = 0; row < kxX.rows(); row++) {
+            EXPECT_NEAR(kxX(row, col), kxX_matlab(row, col), 0.01);
+        }
+    }
+
+    for (int col = 0; col < kXX.cols(); col++) {
+        for (int row = 0; row < kXX.rows(); row++) {
+            EXPECT_NEAR(kXX(row, col), kXX_matlab(row, col), 0.01);
+        }
+    }
+}
+
+TEST_F(GPTest, CovarianceDerivativeTest4) {
+    int N = 10; // number of tests
+    double eps = 1e-6;
+    Eigen::Matrix<double,5,1> hyperParams;
+    hyperParams << 10, 1, 1, 80, 1;
+    hyperParams = hyperParams.array().log();
+
+    for(int h = 0; h < hyperParams.rows(); ++h) {
+        Eigen::VectorXd hyper_plus(hyperParams);
+        Eigen::VectorXd hyper_minus(hyperParams);
+
+        hyper_plus[h] += eps;
+        hyper_minus[h] -= eps;
+
+        covariance_functions::SquareExponentialPeriodic covFunc(hyperParams);
+
+        Eigen::ArrayXXd cov_plus(5,5);
+        Eigen::ArrayXXd cov_minus(5,5);
+
+        Eigen::ArrayXXd analytic_derivative(5,5);
+        Eigen::ArrayXXd numeric_derivative(5,5);
+
+        Eigen::ArrayXXd relative_error(5,5);
+        Eigen::ArrayXXd absolute_error(5,5);
+
+        for(int i = 0; i < N; i++) {
+            Eigen::VectorXd location = math_tools::generate_normal_random_matrix(5,1);
+
+            covFunc.setParameters(hyperParams);
+            analytic_derivative = covFunc.evaluate(location, location).second[h];
+
+            covFunc.setParameters(hyper_plus);
+            cov_plus = covFunc.evaluate(location, location).first;
+            covFunc.setParameters(hyper_minus);
+            cov_minus = covFunc.evaluate(location, location).first;
+
+            numeric_derivative = (cov_plus - cov_minus) / (2*eps);
+
+            absolute_error = (numeric_derivative - analytic_derivative).abs();
+
+            EXPECT_NEAR(absolute_error.maxCoeff(), 0, 1e-6);
+        }
+    }
+}
+
 TEST_F(GPTest, likelihood_test) {
 
   Eigen::VectorXd hyperParams(5);
