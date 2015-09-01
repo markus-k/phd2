@@ -781,7 +781,7 @@ double GuideGaussianProcess::PredictGearError()
     Eigen::VectorXd prediction = parameters->gp_.predict(next_location).first;
 
     // the prediction is consisting of GP prediction and the linear drift
-    return (delta_controller_time_ms / 1000.0)*weights(1);
+    return (prediction(1) - prediction(0)) + (delta_controller_time_ms / 1000.0)*weights(1);
 }
 
 
