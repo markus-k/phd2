@@ -52,6 +52,17 @@ class GuideCamera;
 
 class CameraConfigDialogPane : public ConfigDialogPane
 {
+public:
+    CameraConfigDialogPane(wxWindow *pParent, GuideCamera *pCamera);
+    virtual ~CameraConfigDialogPane(void) {};
+
+    void LayoutControls(GuideCamera *pCamera, BrainCtrlIdMap& CtrlMap);
+    virtual void LoadValues(void) {};
+    virtual void UnloadValues(void) {};
+};
+
+class CameraConfigDialogCtrlSet : public ConfigDialogCtrlSet
+{
     GuideCamera *m_pCamera;
     wxCheckBox *m_pUseSubframes;
     wxSpinCtrl *m_pCameraGain;
@@ -59,16 +70,18 @@ class CameraConfigDialogPane : public ConfigDialogPane
     wxChoice   *m_pPortNum;
     wxSpinCtrl *m_pDelay;
     wxSpinCtrlDouble *m_pPixelSize;
+    wxChoice *m_binning;
 
 public:
-    CameraConfigDialogPane(wxWindow *pParent, GuideCamera *pCamera);
-    virtual ~CameraConfigDialogPane(void);
-
+    CameraConfigDialogCtrlSet(wxWindow *pParent, GuideCamera *pCamera, AdvancedDialog *pAdvancedDialog, BrainCtrlIdMap& CtrlMap);
+    virtual ~CameraConfigDialogCtrlSet() {};
     virtual void LoadValues(void);
     virtual void UnloadValues(void);
 
     double GetPixelSize(void);
     void SetPixelSize(double val);
+    int GetBinning(void);
+    void SetBinning(int val);
 };
 
 enum CaptureOptionBits
@@ -84,6 +97,7 @@ enum CaptureOptionBits
 class GuideCamera :  public wxMessageBoxProxy, public OnboardST4
 {
     friend class CameraConfigDialogPane;
+    friend class CameraConfigDialogCtrlSet;
 
 protected:
     bool            m_hasGuideOutput;
@@ -100,6 +114,8 @@ public:
     bool            HasGainControl;
     bool            HasShutter;
     bool            HasSubframes;
+    wxByte          MaxBinning;
+    wxByte          Binning;
     short           Port;
     int             ReadDelay;
     bool            ShutterClosed;  // false=light, true=dark
@@ -117,12 +133,19 @@ public:
     GuideCamera(void);
     virtual ~GuideCamera(void);
 
-    virtual bool HasNonGuiCapture(void);
+    virtual bool HasNonGuiCapture(void) = 0;
+    virtual wxByte BitsPerPixel(void) = 0;
 
-    virtual bool    Capture(int duration, usImage& img, int captureOptions, const wxRect& subframe) = 0;
-    bool Capture(int duration, usImage& img, int captureOptions) { return Capture(duration, img, captureOptions, wxRect(0, 0, 0, 0)); }
+    static bool Capture(GuideCamera *camera, int duration, usImage& img, int captureOptions, const wxRect& subframe);
+    static bool Capture(GuideCamera *camera, int duration, usImage& img, int captureOptions) { return Capture(camera, duration, img, captureOptions, wxRect(0, 0, 0, 0)); }
 
-    virtual bool    Connect() = 0;                  // Opens up and connects to camera
+    virtual bool HandleSelectCameraButtonClick(wxCommandEvent& evt);
+    static const wxString DEFAULT_CAMERA_ID;
+    virtual bool    EnumCameras(wxArrayString& names, wxArrayString& ids);
+
+    // Opens up and connects to camera. cameraId identifies which camera to connect to if
+    // there is more than one camera present
+    virtual bool    Connect(const wxString& cameraId) = 0;
     virtual bool    Disconnect() = 0;               // Disconnects, unloading any DLLs loaded by Connect
     virtual void    InitCapture();                  // Gets run at the start of any loop (e.g., reset stream, set gain, etc).
 
@@ -132,6 +155,10 @@ public:
     virtual bool    ST4PulseGuideScope(int direction, int duration);
 
     CameraConfigDialogPane *GetConfigDialogPane(wxWindow *pParent);
+    CameraConfigDialogCtrlSet *GetConfigDlgCtrlSet(wxWindow *pParent, GuideCamera *pCamera, AdvancedDialog *pAdvancedDialog, BrainCtrlIdMap& CtrlMap);
+
+    static void GetBinningOpts(int maxBin, wxArrayString *opts);
+    void GetBinningOpts(wxArrayString *opts);
 
     virtual void    ShowPropertyDialog() { return; }
 
@@ -149,8 +176,10 @@ public:
 
 protected:
 
-    virtual int GetCameraGain(void);
-    virtual bool SetCameraGain(int cameraGain);
+    virtual bool Capture(int duration, usImage& img, int captureOptions, const wxRect& subframe) = 0;
+    int GetCameraGain(void);
+    bool SetCameraGain(int cameraGain);
+    bool SetBinning(int binning);
     int GetTimeoutMs(void) const;
     void SetTimeoutMs(int timeoutMs);
     virtual double GetCameraPixelSize(void);
@@ -160,13 +189,22 @@ protected:
         CAPT_FAIL_MEMORY,
         CAPT_FAIL_TIMEOUT,
     };
+    enum ReconnectType {
+        NO_RECONNECT,
+        RECONNECT,
+    };
     void DisconnectWithAlert(CaptureFailType type);
-    void DisconnectWithAlert(const wxString& msg);
+    void DisconnectWithAlert(const wxString& msg, ReconnectType reconnect);
 };
 
 inline int GuideCamera::GetTimeoutMs(void) const
 {
     return m_timeoutMs;
+}
+
+inline void GuideCamera::GetBinningOpts(wxArrayString *opts)
+{
+    GetBinningOpts(MaxBinning, opts);
 }
 
 #endif /* CAMERA_H_INCLUDED */

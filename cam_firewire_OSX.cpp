@@ -47,7 +47,8 @@ bool DCAM_start_stop_mode = true;
 
 #include "cam_firewire.h"
 
-Camera_FirewireClass::Camera_FirewireClass() : m_dcContext(0), camera(0) {
+Camera_FirewireClass::Camera_FirewireClass() : m_dcContext(0), camera(0)
+{
     Connected = false;
 //  HaveBPMap = false;
 //  NBadPixels=-1;
@@ -66,7 +67,13 @@ Camera_FirewireClass::~Camera_FirewireClass()
   }
 }
 
-bool Camera_FirewireClass::Connect() {
+wxByte Camera_FirewireClass::BitsPerPixel()
+{
+    return 8;
+}
+
+bool Camera_FirewireClass::Connect(const wxString& camId)
+{
     int err, CamNum;
     uint32_t i;
     dc1394video_mode_t vidmode;
@@ -229,7 +236,8 @@ bool Camera_FirewireClass::Connect() {
     return false;
 }
 
-void Camera_FirewireClass::InitCapture() {
+void Camera_FirewireClass::InitCapture()
+{
     // Set gain
     uint32_t Min;
     uint32_t Max;
@@ -240,7 +248,8 @@ void Camera_FirewireClass::InitCapture() {
     dc1394_feature_set_value(camera,DC1394_FEATURE_GAIN, NewVal);
 }
 
-bool Camera_FirewireClass::Disconnect() {
+bool Camera_FirewireClass::Disconnect()
+{
     if (camera) {
         dc1394_video_set_transmission(camera,DC1394_OFF);
         dc1394_camera_free(camera);
@@ -349,7 +358,7 @@ bool Camera_FirewireClass::Capture(int duration, usImage& img, int options, cons
 
     // grab the next frame
     if (dc1394_capture_dequeue(camera, DC1394_CAPTURE_POLICY_WAIT, &vframe) != DC1394_SUCCESS) {
-        DisconnectWithAlert(_("Cannot get a frame from the queue"));
+        DisconnectWithAlert(_("Cannot get a frame from the queue"), NO_RECONNECT);
         return true;
     }
     imgptr = vframe->image;

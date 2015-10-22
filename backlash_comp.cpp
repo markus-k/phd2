@@ -464,7 +464,7 @@ void BacklashTool::DecMeasurementStep(const PHD_Point& currentCamLoc)
                 break;
             }
             // See how close we came, maybe fine-tune a bit
-            Debug.AddLine(wxString::Format(_("BLT: Trial backlash pulse resulted in net DecDelta = %0.2f px, Dec Location %0.2f"), decDelta, currMountLocation.Y));
+            Debug.AddLine(wxString::Format("BLT: Trial backlash pulse resulted in net DecDelta = %0.2f px, Dec Location %0.2f", decDelta, currMountLocation.Y));
             if (fabs(decDelta) > TRIAL_TOLERANCE)
             {
                 double pulse_delta = fabs(currMountLocation.Y - m_endSouth.Y);
@@ -516,9 +516,11 @@ void BacklashTool::DecMeasurementStep(const PHD_Point& currentCamLoc)
 
         case BLT_STATE_WRAPUP:
             m_lastStatus = _("Measurement complete");
-            
             CleanUp();
             m_bltState = BLT_STATE_COMPLETED;
+            break;
+
+        case BLT_STATE_COMPLETED:
             break;
 
         case BLT_STATE_ABORTED:
@@ -526,12 +528,9 @@ void BacklashTool::DecMeasurementStep(const PHD_Point& currentCamLoc)
             Debug.AddLine("BLT: measurement process halted by user");
             CleanUp();
             break;
-
         }                       // end of switch on state
-
-
     }
-    catch (wxString msg)
+    catch (const wxString& msg)
     {
         Debug.AddLine(wxString::Format("BLT: Exception thrown in logical state %d", (int)m_bltState));
         m_bltState = BLT_STATE_ABORTED;

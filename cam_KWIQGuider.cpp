@@ -45,7 +45,8 @@
 
 using namespace KWIQ;
 
-Camera_KWIQGuiderClass::Camera_KWIQGuiderClass() {
+Camera_KWIQGuiderClass::Camera_KWIQGuiderClass()
+{
     Connected = FALSE;
     Name=_T("KWIQGuider (KWIQGuider)");
     //Name=_T("KWIQGuider");    //Initially got an error on above line, now don't???
@@ -57,7 +58,13 @@ Camera_KWIQGuiderClass::Camera_KWIQGuiderClass() {
     KWIQguider = new KWIQGuider();
 }
 
-bool Camera_KWIQGuiderClass::Connect() {
+wxByte Camera_KWIQGuiderClass::BitsPerPixel()
+{
+    return 8;
+}
+
+bool Camera_KWIQGuiderClass::Connect(const wxString& camId)
+{
     if (!KWIQguider->Connect()) {
         wxMessageBox(_T("Could not connect to KWIQGuider"), _("Error"));
         return true;
@@ -68,13 +75,15 @@ bool Camera_KWIQGuiderClass::Connect() {
     return false;
 }
 
-bool Camera_KWIQGuiderClass::Disconnect() {
+bool Camera_KWIQGuiderClass::Disconnect()
+{
     Connected = false;
     KWIQguider->Disconnect();
     return false;
 }
 
-bool Camera_KWIQGuiderClass::ST4PulseGuideScope(int direction, int duration) {
+bool Camera_KWIQGuiderClass::ST4PulseGuideScope(int direction, int duration)
+{
     switch (direction) {
         case WEST:
             KWIQguider->Guide(guide_west, duration);
@@ -112,7 +121,7 @@ bool Camera_KWIQGuiderClass::Capture(int duration, usImage& img, int options, co
     struct raw_image *raw = KWIQguider->Expose(duration);
 
     for (unsigned int i = 0; i < raw->width * raw->height; i++) {
-        img.ImageData[i] = (int)raw->data[i];
+        img.ImageData[i] = (unsigned short) raw->data[i];
     }
 
     KWIQguider->FreeRawImage(raw);

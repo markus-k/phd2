@@ -44,7 +44,7 @@ public:
     Camera_QGuiderClass();
 
     bool    Capture(int duration, usImage& img, int options, const wxRect& subframe);
-    bool    Connect();
+    bool    Connect(const wxString& camId);
     bool    Disconnect();
     void    InitCapture();
 
@@ -52,10 +52,10 @@ public:
     void    ClearGuidePort();
     bool    HasNonGuiCapture(void) { return true; }
     bool    ST4HasNonGuiMove(void) { return true; }
+    wxByte  BitsPerPixel();
 
 private:
     void RemoveLines(usImage& img);
 };
+
 #endif  //QGUIDEDEF
-
-

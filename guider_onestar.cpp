@@ -40,8 +40,6 @@
 #include <wx/dir.h>
 #include <algorithm>
 
-#define SCALE_UP_SMALL  // Currently problematic as the box for the star is drawn in the wrong spot.
-
 #if ((wxMAJOR_VERSION < 3) && (wxMINOR_VERSION < 9))
 #define wxPENSTYLE_DOT wxDOT
 #endif
@@ -418,8 +416,8 @@ const PHD_Point& GuiderOneStar::CurrentPosition(void)
 
 inline static wxRect SubframeRect(const PHD_Point& pos, int halfwidth)
 {
-    return wxRect(ROUND(pos.X - halfwidth),
-                  ROUND(pos.Y - halfwidth),
+    return wxRect(ROUND(pos.X) - halfwidth,
+                  ROUND(pos.Y) - halfwidth,
                   2 * halfwidth + 1,
                   2 * halfwidth + 1);
 }
@@ -517,6 +515,26 @@ static wxString StarStatusStr(const Star& star)
     }
 }
 
+static wxString StarStatus(const Star& star)
+{
+    int exp;
+    bool auto_exp;
+    pFrame->GetExposureInfo(&exp, &auto_exp);
+
+    wxString status;
+    if (auto_exp)
+    {
+        if (exp >= 1)
+            status.Printf(_("m=%.0f SNR=%.1f Exp=%0.1f s"), star.Mass, star.SNR, (double) exp / 1000.);
+        else
+            status.Printf(_("m=%.0f SNR=%.1f Exp=%d ms"), star.Mass, star.SNR, exp);
+    }
+    else
+        status.Printf(_("m=%.0f SNR=%.1f"), star.Mass, star.SNR);
+
+    return status;
+}
+
 bool GuiderOneStar::UpdateCurrentPosition(usImage *pImage, FrameDroppedInfo *errorInfo)
 {
     if (!m_star.IsValid() && m_star.X == 0.0 && m_star.Y == 0.0)
@@ -578,20 +596,10 @@ bool GuiderOneStar::UpdateCurrentPosition(usImage *pImage, FrameDroppedInfo *err
         pFrame->pProfile->UpdateData(pImage, m_star.X, m_star.Y);
 
         pFrame->AdjustAutoExposure(m_star.SNR);
-        int exp;
-        bool auto_exp;
-        pFrame->GetExposureInfo(&exp, &auto_exp);
-        if (auto_exp)
-        {
-            if (exp >= 1)
-                errorInfo->status.Printf(_T("m=%.0f SNR=%.1f Exp=%0.1f s"), m_star.Mass, m_star.SNR, (double) exp / 1000.);
-            else
-                errorInfo->status.Printf(_T("m=%.0f SNR=%.1f Exp=%d ms"), m_star.Mass, m_star.SNR, exp);
-        }
-        else
-            errorInfo->status.Printf(_T("m=%.0f SNR=%.1f"), m_star.Mass, m_star.SNR);
+
+        errorInfo->status = StarStatus(m_star);
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -671,7 +679,7 @@ void GuiderOneStar::OnLClick(wxMouseEvent &mevent)
             {
                 SetLockPosition(m_star);
                 pFrame->SetStatusText(wxString::Format(_("Selected star at (%.1f, %.1f)"), m_star.X, m_star.Y), 1);
-                pFrame->SetStatusText(wxString::Format(_T("m=%.0f SNR=%.1f"), m_star.Mass, m_star.SNR));
+                pFrame->SetStatusText(StarStatus(m_star));
                 EvtServer.NotifyStarSelected(CurrentPosition());
                 SetState(STATE_SELECTED);
                 pFrame->UpdateButtonsStatus();
@@ -841,10 +849,8 @@ void GuiderOneStar::SaveStarFITS()
     {
         fits_create_img(fptr,output_format, 2, fsize, &status);
 
-        time_t now;
-        struct tm *timestruct;
-        time(&now);
-        timestruct=gmtime(&now);
+        time_t now = wxDateTime::GetTimeNow();
+        struct tm *timestruct = gmtime(&now);
         sprintf(keyname,"DATE");
         sprintf(keycomment,"UTC date that FITS file was created");
         sprintf(keystring,"%.4d-%.2d-%.2d %.2d:%.2d:%.2d",timestruct->tm_year+1900,timestruct->tm_mon+1,timestruct->tm_mday,timestruct->tm_hour,timestruct->tm_min,timestruct->tm_sec);
@@ -896,7 +902,7 @@ wxString GuiderOneStar::GetSettingsSummary()
     return s;
 }
 
-ConfigDialogPane *GuiderOneStar::GetConfigDialogPane(wxWindow *pParent)
+Guider::GuiderConfigDialogPane *GuiderOneStar::GetConfigDialogPane(wxWindow *pParent)
 {
     return new GuiderOneStarConfigDialogPane(pParent, this);
 }
@@ -904,57 +910,83 @@ ConfigDialogPane *GuiderOneStar::GetConfigDialogPane(wxWindow *pParent)
 GuiderOneStar::GuiderOneStarConfigDialogPane::GuiderOneStarConfigDialogPane(wxWindow *pParent, GuiderOneStar *pGuider)
     : GuiderConfigDialogPane(pParent, pGuider)
 {
+
+}
+
+void GuiderOneStar::GuiderOneStarConfigDialogPane::LayoutControls(Guider *pGuider, BrainCtrlIdMap& CtrlMap)
+{
+    GuiderConfigDialogPane::LayoutControls(pGuider, CtrlMap);
+}
+
+GuiderConfigDialogCtrlSet* GuiderOneStar::GetConfigDialogCtrlSet(wxWindow *pParent, Guider *pGuider, AdvancedDialog *pAdvancedDialog, BrainCtrlIdMap& CtrlMap)
+{
+    return new GuiderOneStarConfigDialogCtrlSet(pParent, pGuider, pAdvancedDialog, CtrlMap);
+}
+
+GuiderOneStarConfigDialogCtrlSet::GuiderOneStarConfigDialogCtrlSet(wxWindow *pParent, Guider *pGuider, AdvancedDialog *pAdvancedDialog, BrainCtrlIdMap& CtrlMap)
+    : GuiderConfigDialogCtrlSet(pParent, pGuider, pAdvancedDialog, CtrlMap)
+{
+    assert(pGuider);
+
+    m_pGuiderOneStar = (GuiderOneStar *)pGuider;
     int width;
 
-    m_pGuiderOneStar = pGuider;
-
     width = StringWidth(_T("0000"));
-    m_pSearchRegion = new wxSpinCtrl(pParent, wxID_ANY, _T("foo2"), wxPoint(-1,-1),
-                                     wxSize(width+30, -1), wxSP_ARROW_KEYS, MIN_SEARCH_REGION, MAX_SEARCH_REGION, DEFAULT_SEARCH_REGION, _T("Search"));
-    DoAdd(_("Search region (pixels)"), m_pSearchRegion,
-          _("How many pixels (up/down/left/right) do we examine to find the star? Default = 15"));
+    m_pSearchRegion = new wxSpinCtrl(GetParentWindow(AD_szStarTracking), wxID_ANY, _T("foo2"), wxPoint(-1, -1),
+        wxSize(width + 30, -1), wxSP_ARROW_KEYS, MIN_SEARCH_REGION, MAX_SEARCH_REGION, DEFAULT_SEARCH_REGION, _T("Search"));
+    wxSizer *pSearchRegion = MakeLabeledControl(AD_szStarTracking, _("Search region (pixels)"), m_pSearchRegion,
+        _("How many pixels (up/down/left/right) do we examine to find the star? Default = 15"));
 
-    m_pEnableStarMassChangeThresh = new wxCheckBox(pParent, STAR_MASS_ENABLE, _("Star mass change detection"));
-    DoAdd(m_pEnableStarMassChangeThresh, _("Check to enable star mass change detection. When enabled, "
-        "PHD skips frames when the guide star mass changes by an amount greater than the Star mass tolerance setting."));
+    wxStaticBoxSizer *pStarMass = new wxStaticBoxSizer(wxHORIZONTAL, GetParentWindow(AD_szStarTracking), _("Star Mass Detection"));
+    m_pEnableStarMassChangeThresh = new wxCheckBox(GetParentWindow(AD_szStarTracking), STAR_MASS_ENABLE, _("Enable"));
+    m_pEnableStarMassChangeThresh->SetToolTip(_("Check to enable star mass change detection. When enabled, "
+        "PHD skips frames when the guide star mass changes by an amount greater than the setting for 'tolerance'."));
 
-    pParent->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &GuiderOneStar::GuiderOneStarConfigDialogPane::OnStarMassEnableChecked, this, STAR_MASS_ENABLE);
+    GetParentWindow(AD_szStarTracking)->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &GuiderOneStarConfigDialogCtrlSet::OnStarMassEnableChecked, this, STAR_MASS_ENABLE);
 
     width = StringWidth(_T("100.0"));
-    m_pMassChangeThreshold = new wxSpinCtrlDouble(pParent, wxID_ANY,_T("foo2"), wxPoint(-1,-1),
-            wxSize(width+30, -1), wxSP_ARROW_KEYS, 0.1, 100.0, 0.0, 1.0,_T("MassChangeThreshold"));
+    m_pMassChangeThreshold = new wxSpinCtrlDouble(pParent, wxID_ANY, _T("foo2"), wxPoint(-1, -1),
+        wxSize(width + 30, -1), wxSP_ARROW_KEYS, 0.1, 100.0, 0.0, 1.0, _T("MassChangeThreshold"));
     m_pMassChangeThreshold->SetDigits(1);
-    DoAdd(_("Star mass tolerance"), m_pMassChangeThreshold,
-          _("When star mass change detection is enabled, this is the tolerance for star mass changes between frames, in percent. "
-          "Larger values are more tolerant (less sensitive) to star mass changes. Valid range is 10-100, default is 50. "
-          "If star mass change detection is not enabled then this setting is ignored."));
+    wxSizer *pTolerance = MakeLabeledControl(AD_szStarTracking, _("Tolerance"), m_pMassChangeThreshold,
+        _("When star mass change detection is enabled, this is the tolerance for star mass changes between frames, in percent. "
+        "Larger values are more tolerant (less sensitive) to star mass changes. Valid range is 10-100, default is 50. "
+        "If star mass change detection is not enabled then this setting is ignored."));
+    pStarMass->Add(m_pEnableStarMassChangeThresh, wxSizerFlags(0).Border(wxTOP, 3));
+    pStarMass->Add(pTolerance, wxSizerFlags(0).Border(wxLEFT, 40));
+
+    wxFlexGridSizer *pTrackingParams = new wxFlexGridSizer(1, 2, 5, 15);
+    pTrackingParams->Add(pSearchRegion, wxSizerFlags(0).Border(wxTOP, 10));
+    pTrackingParams->Add(pStarMass,wxSizerFlags(0).Border(wxLEFT, 75));
+
+    AddGroup(CtrlMap, AD_szStarTracking, pTrackingParams);
+
 }
 
-GuiderOneStar::GuiderOneStarConfigDialogPane::~GuiderOneStarConfigDialogPane(void)
+GuiderOneStarConfigDialogCtrlSet::~GuiderOneStarConfigDialogCtrlSet()
 {
+
 }
 
-void GuiderOneStar::GuiderOneStarConfigDialogPane::LoadValues(void)
+void GuiderOneStarConfigDialogCtrlSet::LoadValues()
 {
-    GuiderConfigDialogPane::LoadValues();
-
     bool starMassEnabled = m_pGuiderOneStar->GetMassChangeThresholdEnabled();
     m_pEnableStarMassChangeThresh->SetValue(starMassEnabled);
     m_pMassChangeThreshold->Enable(starMassEnabled);
     m_pMassChangeThreshold->SetValue(100.0 * m_pGuiderOneStar->GetMassChangeThreshold());
     m_pSearchRegion->SetValue(m_pGuiderOneStar->GetSearchRegion());
+    GuiderConfigDialogCtrlSet::LoadValues();
 }
 
-void GuiderOneStar::GuiderOneStarConfigDialogPane::UnloadValues(void)
+void GuiderOneStarConfigDialogCtrlSet::UnloadValues()
 {
     m_pGuiderOneStar->SetMassChangeThresholdEnabled(m_pEnableStarMassChangeThresh->GetValue());
     m_pGuiderOneStar->SetMassChangeThreshold(m_pMassChangeThreshold->GetValue() / 100.0);
     m_pGuiderOneStar->SetSearchRegion(m_pSearchRegion->GetValue());
-
-    GuiderConfigDialogPane::UnloadValues();
+    GuiderConfigDialogCtrlSet::UnloadValues();
 }
 
-void GuiderOneStar::GuiderOneStarConfigDialogPane::OnStarMassEnableChecked(wxCommandEvent& event)
+void GuiderOneStarConfigDialogCtrlSet::OnStarMassEnableChecked(wxCommandEvent& event)
 {
     m_pMassChangeThreshold->Enable(event.IsChecked());
 }

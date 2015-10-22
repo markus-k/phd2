@@ -63,13 +63,15 @@ inline static void LogExcep(HRESULT hr, const wxString& prefix, const EXCEPINFO&
         Debug.AddLine(ExcepMsg(prefix, excep));
 }
 
-static bool ASCOM_SetBin(IDispatch *cam, int mode, EXCEPINFO *excep)
+static bool ASCOM_SetBin(IDispatch *cam, int binning, EXCEPINFO *excep)
 {
     // returns true on error, false if OK
 
+    Debug.Write(wxString::Format("ASCOM Camera: set binning = %hu\n", binning));
+
     VARIANTARG rgvarg[1];
     rgvarg[0].vt = VT_I2;
-    rgvarg[0].iVal = (short) mode;
+    rgvarg[0].iVal = (short) binning;
 
     DISPID dispidNamed = DISPID_PROPERTYPUT;
     DISPPARAMS dispParms;
@@ -358,10 +360,16 @@ Camera_ASCOMLateClass::Camera_ASCOMLateClass(const wxString& choice)
     PropertyDialogType = IsChooser(choice) ? PROPDLG_NONE : PROPDLG_WHEN_DISCONNECTED;
     Color = false;
     DriverVersion = 1;
+    m_bitsPerPixel = 0;
 }
 
 Camera_ASCOMLateClass::~Camera_ASCOMLateClass()
 {
+}
+
+wxByte Camera_ASCOMLateClass::BitsPerPixel()
+{
+    return m_bitsPerPixel;
 }
 
 static wxString displayName(const wxString& ascomName)
@@ -511,7 +519,7 @@ static bool GetDispid(DISPID *pid, DispatchObj& obj, OLECHAR *name)
     return true;
 }
 
-bool Camera_ASCOMLateClass::Connect()
+bool Camera_ASCOMLateClass::Connect(const wxString& camId)
 {
     DispatchClass driver_class;
     DispatchObj driver(&driver_class);
@@ -594,7 +602,7 @@ bool Camera_ASCOMLateClass::Connect()
         pFrame->Alert(_("ASCOM driver missing the CameraXSize property"));
         return true;
     }
-    FullSize.SetWidth((int) vRes.lVal);
+    m_maxSize.SetWidth((int) vRes.lVal);
 
     if (!driver.GetProp(&vRes, L"CameraYSize"))
     {
@@ -602,7 +610,17 @@ bool Camera_ASCOMLateClass::Connect()
         pFrame->Alert(_("ASCOM driver missing the CameraYSize property"));
         return true;
     }
-    FullSize.SetHeight((int) vRes.lVal);
+    m_maxSize.SetHeight((int) vRes.lVal);
+
+    if (!driver.GetProp(&vRes, L"MaxADU"))
+    {
+        Debug.AddLine(ExcepMsg("MaxADU", driver.Excep()));
+        m_bitsPerPixel = 16;  // assume 16 BPP
+    }
+    else
+    {
+        m_bitsPerPixel = vRes.intVal <= 255 ? 8 : 16;
+    }
 
     // Get the interface version of the driver
 
@@ -637,6 +655,17 @@ bool Camera_ASCOMLateClass::Connect()
     }
     if ((double) vRes.dblVal > PixelSize)
         PixelSize = (double) vRes.dblVal;
+
+    short maxBinX = 1, maxBinY = 1;
+    if (driver.GetProp(&vRes, L"MaxBinX"))
+        maxBinX = vRes.iVal;
+    if (driver.GetProp(&vRes, L"MaxBinY"))
+        maxBinY = vRes.iVal;
+    MaxBinning = wxMin(maxBinX, maxBinY);
+    Debug.AddLine("ASCOM camera: MaxBinning is %hu", MaxBinning);
+    if (Binning > MaxBinning)
+        Binning = MaxBinning;
+    m_curBin = Binning;
 
     // Get the dispids we'll need for more routine things
     if (!GetDispid(&dispid_setxbin, driver, L"BinX"))
@@ -678,9 +707,18 @@ bool Camera_ASCOMLateClass::Connect()
     if (!GetDispid(&dispid_ispulseguiding, driver, L"IsPulseGuiding"))
         return true;
 
-    // Program some defaults -- full size and 1x1 bin
+    // Program some defaults -- full size and binning
     EXCEPINFO excep;
-    ASCOM_SetBin(driver.IDisp(), 1, &excep);
+    if (ASCOM_SetBin(driver.IDisp(), Binning, &excep))
+    {
+        // only make this error fatal if the camera supports binning > 1
+        if (MaxBinning > 1)
+        {
+            pFrame->Alert(_("The ASCOM camera failed to set binning."));
+            return true;
+        }
+    }
+    FullSize = wxSize(m_maxSize.x / Binning, m_maxSize.y / Binning);
     m_roi = FullSize;
     ASCOM_SetROI(driver.IDisp(), FullSize, &excep);
 
@@ -697,14 +735,18 @@ bool Camera_ASCOMLateClass::Disconnect()
         return false;
     }
 
-    GITObjRef cam(m_gitEntry);
+    { // scope
+        GITObjRef cam(m_gitEntry);
 
-    if (!cam.PutProp(L"Connected", false))
-    {
-        Debug.AddLine(ExcepMsg("ASCOM disconnect", cam.Excep()));
-        pFrame->Alert(ExcepMsg(_("ASCOM driver problem -- cannot disconnect"), cam.Excep()));
-        return true;
-    }
+        if (!cam.PutProp(L"Connected", false))
+        {
+            Debug.AddLine(ExcepMsg("ASCOM disconnect", cam.Excep()));
+            pFrame->Alert(ExcepMsg(_("ASCOM driver problem -- cannot disconnect"), cam.Excep()));
+            return true;
+        }
+    } // scope
+
+    m_gitEntry.Unregister();
 
     Connected = false;
     return false;
@@ -757,6 +799,13 @@ bool Camera_ASCOMLateClass::Capture(int duration, usImage& img, int options, con
         takeSubframe = false;
     }
 
+    bool binning_changed = false;
+    if (Binning != m_curBin)
+    {
+        FullSize = wxSize(m_maxSize.x / Binning, m_maxSize.y / Binning);
+        binning_changed = true;
+    }
+
     // Program the size
     if (!takeSubframe)
     {
@@ -772,6 +821,17 @@ bool Camera_ASCOMLateClass::Capture(int duration, usImage& img, int options, con
     GITObjRef cam(m_gitEntry);
 
     EXCEPINFO excep;
+
+    if (binning_changed)
+    {
+        if (ASCOM_SetBin(cam.IDisp(), Binning, &excep))
+        {
+            pFrame->Alert(_("The ASCOM camera failed to set binning."));
+            return true;
+        }
+        m_curBin = Binning;
+    }
+
     if (subframe != m_roi)
     {
         ASCOM_SetROI(cam.IDisp(), subframe, &excep);
@@ -835,7 +895,7 @@ bool Camera_ASCOMLateClass::Capture(int duration, usImage& img, int options, con
 
     if (options & CAPTURE_SUBTRACT_DARK)
         SubtractDark(img);
-    if (Color && (options & CAPTURE_RECON))
+    if (Color && Binning == 1 && (options & CAPTURE_RECON))
         QuickLRecon(img);
 
     return false;

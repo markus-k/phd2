@@ -66,12 +66,14 @@ protected:
 public:
     Camera_WDMClass();
 
+    bool HandleSelectCameraButtonClick(wxCommandEvent& evt);
     bool Capture(int duration, usImage& img, int options, const wxRect& subframe);
     bool CaptureOneFrame(usImage& img, int options, const wxRect& subframe);
-    bool Connect();
+    bool Connect(const wxString& camId);
     bool Disconnect();
     void ShowPropertyDialog();
-    bool HasNonGuiCapture(void) { return true; }
+    bool HasNonGuiCapture() { return true; }
+    wxByte BitsPerPixel();
 
 protected:
     bool SelectDeviceAndMode();

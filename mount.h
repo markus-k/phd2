@@ -72,6 +72,7 @@ struct Calibration
     double declination;
     PierSide pierSide;
     double rotatorAngle;
+    unsigned short binning;
     wxString timestamp;
 };
 
@@ -82,6 +83,7 @@ struct CalibrationDetails
     double raGuideSpeed;
     double decGuideSpeed;
     double orthoError;
+    double origBinning;
     std::vector <wxRealPoint> raSteps;
     std::vector <wxRealPoint> decSteps;
     int raStepCount;
@@ -103,6 +105,19 @@ struct MoveResultInfo
     MoveResultInfo() : amountMoved(0), limited(false) { }
 };
 
+class MountConfigDialogCtrlSet : public ConfigDialogCtrlSet
+{
+    Mount* m_pMount;
+    wxCheckBox *m_pClearCalibration;
+    wxCheckBox *m_pEnableGuide;
+
+public:
+    MountConfigDialogCtrlSet(wxWindow *pParent, Mount *pMount, AdvancedDialog* pAdvancedDialog, BrainCtrlIdMap& CtrlMap);
+    virtual ~MountConfigDialogCtrlSet() {};
+    virtual void LoadValues(void);
+    virtual void UnloadValues(void);
+};
+
 class Mount : public wxMessageBoxProxy
 {
     bool m_connected;
@@ -115,9 +130,9 @@ class Mount : public wxMessageBoxProxy
 
     double m_currentDeclination;
 
-
 protected:
     bool m_guidingEnabled;
+    bool m_useDecCompensation;
 
     GuideAlgorithm *m_pXGuideAlgorithm;
     GuideAlgorithm *m_pYGuideAlgorithm;
@@ -127,18 +142,21 @@ protected:
     BacklashComp *m_backlashComp;
 
     // Things related to the Advanced Config Dialog
-protected:
+public:
     class MountConfigDialogPane : public wxEvtHandler, public ConfigDialogPane
     {
+    protected:
         Mount *m_pMount;
-        wxCheckBox *m_pClearCalibration;
-        wxCheckBox *m_pEnableGuide;
+        wxWindow* m_pParent;
         wxChoice   *m_pXGuideAlgorithmChoice;
         wxChoice   *m_pYGuideAlgorithmChoice;
         int        m_initXGuideAlgorithmSelection;
         int        m_initYGuideAlgorithmSelection;
         ConfigDialogPane *m_pXGuideAlgorithmConfigDialogPane;
         ConfigDialogPane *m_pYGuideAlgorithmConfigDialogPane;
+        wxStaticBoxSizer* m_pAlgoBox;
+        wxStaticBoxSizer* m_pRABox;
+        wxStaticBoxSizer* m_pDecBox;
 
     public:
         MountConfigDialogPane(wxWindow *pParent, const wxString& title, Mount *pMount);
@@ -146,6 +164,8 @@ protected:
 
         virtual void LoadValues(void);
         virtual void UnloadValues(void);
+        virtual void LayoutControls(wxPanel *pParent, BrainCtrlIdMap& CtrlMap);
+
         virtual void Undo(void);
 
         void OnXAlgorithmSelected(wxCommandEvent& evt);
@@ -165,7 +185,7 @@ protected:
     void Mount::TestTransforms(void);
 #endif
 
-    // functions with an implemenation in Mount that cannot be over-ridden
+    // functions with an implementation in Mount that cannot be over-ridden
     // by a subclass
 public:
 
@@ -185,6 +205,7 @@ public:
     double xAngle(void);
     double xRate(void);
     bool DecCompensationActive(void) const;
+    bool DecCompensationEnabled();
 
     bool FlipCalibration(void);
     bool GetGuidingEnabled(void);
@@ -219,7 +240,9 @@ public:
 
     virtual bool GuidingCeases(void) = 0;
 
-    virtual ConfigDialogPane *GetConfigDialogPane(wxWindow *pParent) = 0;
+    virtual MountConfigDialogPane *GetConfigDialogPane(wxWindow *pParent) = 0;
+    virtual MountConfigDialogCtrlSet *GetConfigDialogCtrlSet(wxWindow *pParent, Mount *pMount, AdvancedDialog *pAdvancedDialog, BrainCtrlIdMap& CtrlMap) = 0;
+
     virtual wxString GetMountClassName() const = 0;
 
     GuideAlgorithm *GetXGuideAlgorithm(void) const;
@@ -252,7 +275,7 @@ public:
     virtual bool IsCalibrated(void);
     virtual void ClearCalibration(void);
     virtual void SetCalibration(const Calibration& cal);
-    virtual void SetCalibrationDetails(const CalibrationDetails& calDetails, double xAngle, double yAngle);
+    virtual void SetCalibrationDetails(const CalibrationDetails& calDetails);
     void GetCalibrationDetails(CalibrationDetails *calDetails);
 
     virtual bool IsConnected(void);
@@ -286,7 +309,7 @@ public:
 
 inline bool Mount::DecCompensationActive(void) const
 {
-    return m_currentDeclination != m_cal.declination;
+    return (m_currentDeclination != m_cal.declination && m_useDecCompensation);
 }
 
 inline GuideAlgorithm *Mount::GetXGuideAlgorithm(void) const

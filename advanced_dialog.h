@@ -37,19 +37,47 @@
 
 class MyFrame;
 class MyFrameConfigDialogPane;
+class MyFrameConfigDialogCtrlSet;
+class MountConfigDialogCtrlSet;
 class CameraConfigDialogPane;
+class GuiderConfigDialogPane;
+
+enum TAB_PAGES {
+    AD_GLOBAL_PAGE,
+    AD_GUIDER_PAGE,
+    AD_CAMERA_PAGE,
+    AD_MOUNT_PAGE,
+    AD_AO_PAGE,
+    AD_ROTATOR_PAGE,
+    AD_UNASSIGNED_PAGE
+};
 
 class AdvancedDialog : public wxDialog
 {
+    MyFrame *m_pFrame;
     wxBookCtrlBase *m_pNotebook;
     wxWindow *m_aoPage;
     wxWindow *m_rotatorPage;
     MyFrameConfigDialogPane *m_pGlobalPane;
-    ConfigDialogPane *m_pGuiderPane;
+    Guider::GuiderConfigDialogPane* m_pGuiderPane;
     CameraConfigDialogPane *m_pCameraPane;
-    ConfigDialogPane *m_pMountPane;
-    ConfigDialogPane *m_pAoPane;
-    ConfigDialogPane *m_rotatorPane;
+    Mount::MountConfigDialogPane *m_pMountPane;
+    AOConfigDialogPane *m_pAOPane;
+    RotatorConfigDialogPane *m_pRotatorPane;
+
+    BrainCtrlIdMap m_brainCtrls;
+    bool m_rebuildPanels;
+    MyFrameConfigDialogCtrlSet *m_pGlobalCtrlSet;
+    CameraConfigDialogCtrlSet *m_pCameraCtrlSet;
+    GuiderConfigDialogCtrlSet *m_pGuiderCtrlSet;
+    MountConfigDialogCtrlSet *m_pScopeCtrlSet;
+    AOConfigDialogCtrlSet *m_pAOCtrlSet;
+    RotatorConfigDialogCtrlSet *m_pRotatorCtrlSet;
+    wxPanel *m_pGlobalSettingsPanel;
+    wxPanel *m_pCameraSettingsPanel;
+    wxPanel *m_pGuiderSettingsPanel;
+    wxPanel *m_pScopeSettingsPanel;
+    wxPanel *m_pDevicesSettingsPanel;
 
 public:
     AdvancedDialog(MyFrame *pFrame);
@@ -65,17 +93,26 @@ public:
     void LoadValues(void);
     void UnloadValues(void);
     void Undo(void);
+    void Preload();
 
     int GetFocalLength(void);
     void SetFocalLength(int val);
     double GetPixelSize(void);
     void SetPixelSize(double val);
+    int GetBinning(void);
+    void SetBinning(int binning);
+
+    wxWindow *GetTabLocation(BRAIN_CTRL_IDS id);
 
 private:
     void AddCameraPage(void);
     void AddMountPage(void);
     void AddAoPage(void);
     void AddRotatorPage(void);
+    void RebuildPanels(void);
+    void BuildCtrlSets();
+    void CleanupCtrlSets();
+    void ConfirmLayouts();
 };
 
 #endif // ADVANCED_DIALOG_H_INCLUDED

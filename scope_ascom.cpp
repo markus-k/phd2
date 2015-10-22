@@ -469,18 +469,26 @@ bool ScopeASCOM::Disconnect(void)
             throw ERROR_INFO("ASCOM Scope: attempt to disconnect when not connected");
         }
 
-        GITObjRef scope(m_gitEntry);
-
-        // ... set the Connected property to false....
-        if (!scope.PutProp(dispid_connected, false))
+        // Setting the Connected property to false will cause the scope to be disconnected for all
+        // ASCOM clients that are connected to the scope, and we do not want this!
+        bool const disconnectAscomDriver = false;
+        if (disconnectAscomDriver)
         {
-            pFrame->Alert(_("ASCOM driver problem during disconnect"));
-            throw ERROR_INFO("ASCOM Scope: Could not set Connected property to false: " + ExcepMsg(scope.Excep()));
+            GITObjRef scope(m_gitEntry);
+
+            // Set the Connected property to false
+            if (!scope.PutProp(dispid_connected, false))
+            {
+                pFrame->Alert(_("ASCOM driver problem during disconnect"));
+                throw ERROR_INFO("ASCOM Scope: Could not set Connected property to false: " + ExcepMsg(scope.Excep()));
+            }
         }
+
+        m_gitEntry.Unregister();
 
         Debug.AddLine("Disconnected Successfully");
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -499,6 +507,17 @@ bool ScopeASCOM::Disconnect(void)
             throw ERROR_INFO("attempt to guide while slewing"); \
         } \
     } while (0)
+
+static wxString SlewWarningEnabledKey()
+{
+    // we want the key to be under "/Confirm" so ConfirmDialog::ResetAllDontAskAgain() resets it, but we also want the setting to be per-profile
+    return wxString::Format("/Confirm/%d/SlewWarningEnabled", pConfig->GetCurrentProfileId());
+}
+
+static void SuppressSlewAlert(long)
+{
+    pConfig->Global.SetBoolean(SlewWarningEnabledKey(), false);
+}
 
 Mount::MOVE_RESULT ScopeASCOM::Guide(GUIDE_DIRECTION direction, int duration)
 {
@@ -656,13 +675,21 @@ Mount::MOVE_RESULT ScopeASCOM::Guide(GUIDE_DIRECTION direction, int duration)
         if (result == MOVE_OK)
         {
             result = MOVE_ERROR;
-            pFrame->Alert(_("PulseGuide command to mount has failed - guiding is likely to be ineffective."));
+
+            if (!WorkerThread::InterruptRequested())
+            {
+                pFrame->Alert(_("PulseGuide command to mount has failed - guiding is likely to be ineffective."));
+            }
         }
     }
 
     if (result == MOVE_STOP_GUIDING)
     {
-        pFrame->Alert(_("Guiding stopped: the scope started slewing."));
+        if (pConfig->Global.GetBoolean(SlewWarningEnabledKey(), true))
+        {
+            pFrame->Alert(_("Guiding stopped: the scope started slewing."), 
+                _("Don't show\nthis again"), SuppressSlewAlert, 0);
+        }
     }
 
     return result;

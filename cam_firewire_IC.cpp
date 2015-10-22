@@ -61,10 +61,16 @@ Camera_FirewireClass::Camera_FirewireClass()
     m_hasGuideOutput = false;
 }
 
+wxByte Camera_FirewireClass::BitsPerPixel()
+{
+    return 8;
+}
+
 //Camera_FirewireClass::~Camera_FirewireClass () {
 //  ;
 //}
-bool Camera_FirewireClass::Connect() {
+bool Camera_FirewireClass::Connect(const wxString& camId)
+{
     int CamNum, ModeNum;
     bool retval;
     wxArrayString Names;
@@ -244,7 +250,8 @@ bool Camera_FirewireClass::Connect() {
     return false;
 }
 
-bool Camera_FirewireClass::Disconnect() {
+bool Camera_FirewireClass::Disconnect()
+{
     m_pGrabber->stopLive();
     m_pGrabber->closeDev();
     Connected = false;
@@ -252,7 +259,8 @@ bool Camera_FirewireClass::Disconnect() {
     return false;
 }
 
-void Camera_FirewireClass::InitCapture() {
+void Camera_FirewireClass::InitCapture()
+{
     // Set gain
     if (m_pGain != 0) {
         long lval = (long) GuideCameraGain * GainMax / 100;
@@ -312,7 +320,8 @@ bool Camera_FirewireClass::Capture(int duration, usImage& img, int options, cons
 
     if (err.isError())
     {
-        DisconnectWithAlert(wxString::Format(_("Error capturing image: %d (%d) %s"), (int) err.getVal(), (int) eTIMEOUT_PREMATURLY_ELAPSED, wxString(err.c_str())));
+        DisconnectWithAlert(wxString::Format(_("Error capturing image: %d (%d) %s"),
+            (int) err.getVal(), (int) eTIMEOUT_PREMATURLY_ELAPSED, wxString(err.c_str())), NO_RECONNECT);
         return true;
     }
     imgptr = (unsigned char *) pSink->getLastAcqMemBuffer()->getPtr();

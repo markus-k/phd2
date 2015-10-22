@@ -62,8 +62,9 @@ public:
     ~Camera_FirewireClass();
 
     bool    Capture(int duration, usImage& img, int options, const wxRect& subframe);
-    bool    HasNonGuiCapture(void);
-    bool    Connect();
+    bool    HasNonGuiCapture();
+    wxByte  BitsPerPixel();
+    bool    Connect(const wxString& camId);
     bool    Disconnect();
     void    InitCapture();
 };

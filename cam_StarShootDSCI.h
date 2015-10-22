@@ -35,6 +35,7 @@
 
 #ifndef SSDEF
 #define SSDEF
+
 #include "StarShootDLL.h"
 
 class Camera_StarShootDSCIClass : public GuideCamera
@@ -54,9 +55,11 @@ class Camera_StarShootDSCIClass : public GuideCamera
 
 public:
     Camera_StarShootDSCIClass();
-    bool    Capture(int duration, usImage& img, int options, const wxRect& subframe);
-    bool    Connect();
-    bool    Disconnect();
-    void    InitCapture() { return; }
+    bool   Capture(int duration, usImage& img, int options, const wxRect& subframe);
+    bool   Connect(const wxString& camId);
+    bool   Disconnect();
+    bool HasNonGuiCapture() { return true; }
+    wxByte BitsPerPixel();
 };
+
 #endif

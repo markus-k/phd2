@@ -34,13 +34,15 @@
 
 
 #include "phd.h"
-#if defined (SBIG)
-#include "camera.h"
-#include "time.h"
-#include "image_math.h"
-#include <wx/textdlg.h>
 
-#include "Cam_SBIG.h"
+#if defined(SBIG)
+
+#include "cam_SBIG.h"
+#include "camera.h"
+#include "image_math.h"
+
+#include <time.h>
+#include <wx/textdlg.h>
 
 static unsigned long bcd2long(unsigned long bcd)
 {
@@ -58,6 +60,7 @@ static unsigned long bcd2long(unsigned long bcd)
 }
 
 Camera_SBIGClass::Camera_SBIGClass()
+    : m_driverLoaded(false)
 {
     Connected = false;
     Name = _T("SBIG");
@@ -69,7 +72,18 @@ Camera_SBIGClass::Camera_SBIGClass()
     HasSubframes = true;
 }
 
-static bool LoadDriver()
+Camera_SBIGClass::~Camera_SBIGClass()
+{
+    if (m_driverLoaded)
+        SBIGUnivDrvCommand(CC_CLOSE_DRIVER, NULL, NULL);
+}
+
+wxByte Camera_SBIGClass::BitsPerPixel()
+{
+    return 16;
+}
+
+static bool _LoadDriver()
 {
     short err;
 
@@ -81,30 +95,31 @@ static bool LoadDriver()
         err = CE_DRIVER_NOT_FOUND;
     }
 #else
-        err = SBIGUnivDrvCommand(CC_OPEN_DRIVER, NULL, NULL);
+    err = SBIGUnivDrvCommand(CC_OPEN_DRIVER, NULL, NULL);
 #endif
-    if ( err != CE_NO_ERROR ) {
-        return true;
-    }
-    return false;
+
+    return err == CE_NO_ERROR;
 }
 
-bool Camera_SBIGClass::Connect()
+bool Camera_SBIGClass::LoadDriver()
 {
-    // DEAL WITH PIXEL ASPECT RATIO
-    // DEAL WITH ASKING ABOUT WHICH INTERFACE
-// returns true on error
-    short err;
-    OpenDeviceParams odp;
-    int resp;
-
-//  wxMessageBox(_("1: Loading SBIG DLL"));
-    if (LoadDriver()) {
-        wxMessageBox(_("Error loading SBIG driver and/or DLL"));
+    if (m_driverLoaded)
         return true;
-    }
-    // Put dialog here to select which cam interface
+
+    bool ok = _LoadDriver();
+    if (ok)
+        m_driverLoaded = true;
+    else
+        wxMessageBox(_("Error loading SBIG driver and/or DLL"));
+
+    return ok;
+}
+
+static bool SelectInterfaceAndDevice()
+{
+    // select which cam interface
     wxArrayString interf;
+
     interf.Add("USB");
     interf.Add("Ethernet");
 #if defined (__WINDOWS__)
@@ -116,104 +131,157 @@ bool Camera_SBIGClass::Connect()
     interf.Add("USB2 direct");
     interf.Add("USB3 direct");
 #endif
-    resp = pConfig->Profile.GetInt("/camera/sbig/interface", 0);
-    resp = wxGetSingleChoiceIndex(_("Select interface"),_("Interface"),interf,
-            NULL, wxDefaultCoord, wxDefaultCoord, true, wxCHOICE_WIDTH, wxCHOICE_HEIGHT,
-            resp);
+
+    int resp = pConfig->Profile.GetInt("/camera/sbig/interface", 0);
+    resp = wxGetSingleChoiceIndex(_("Select interface"), _("Interface"), interf,
+        NULL, wxDefaultCoord, wxDefaultCoord, true, wxCHOICE_WIDTH, wxCHOICE_HEIGHT,
+        resp);
 
     if (resp == -1)
     {
         // user hit cancel
-        Disconnect();
         return true;
     }
 
-    wxString IPstr;
-    wxString tmpstr;
-    unsigned long ip,tmp;
-
     pConfig->Profile.SetInt("/camera/sbig/interface", resp);
 
-    switch (resp) {
-        case 0:
-//          wxMessageBox(_("2: USB selected"));
-            odp.deviceType = DEV_USB;
-            QueryUSBResults usbp;
-//          wxMessageBox(_("3: Sending Query USB"));
-            err = SBIGUnivDrvCommand(CC_QUERY_USB, 0,&usbp);
-//          wxMessageBox(_("4: Query sent"));
-//          wxMessageBox(wxString::Format("5: %u cams found",usbp.camerasFound));
-            if (usbp.camerasFound > 1) {
-//              wxMessageBox(_("5a: Enumerating cams"));
-                wxArrayString USBNames;
-                int i;
-                for (i=0; i<usbp.camerasFound; i++)
-                    USBNames.Add(usbp.usbInfo[i].name);
-                i=wxGetSingleChoiceIndex(_("Select USB camera"),_("Camera name"),USBNames);
-                if (i == -1) { Disconnect(); return true; }
-                if (i == 0) odp.deviceType = DEV_USB1;
-                else if (i == 1) odp.deviceType = DEV_USB2;
-                else if (i == 2) odp.deviceType = DEV_USB3;
-                else odp.deviceType = DEV_USB4;
-            }
-            break;
-        case 1:
-            odp.deviceType = DEV_ETH;
-            IPstr = wxGetTextFromUser(_("IP address"),_("Enter IP address"),
-                                      pConfig->Profile.GetString("/camera/sbig/ipaddr", _T("")));
-            if (IPstr.length() == 0)
-            {
-                Disconnect();
-                return true;
-            }
-            pConfig->Profile.SetString("/camera/sbig/ipaddr", IPstr);
-            tmpstr = IPstr.BeforeFirst('.');
-            tmpstr.ToULong(&tmp);
-            ip =  tmp << 24;
-            IPstr = IPstr.AfterFirst('.');
-            tmpstr = IPstr.BeforeFirst('.');
-            tmpstr.ToULong(&tmp);
-            ip = ip | (tmp << 16);
-            IPstr = IPstr.AfterFirst('.');
-            tmpstr = IPstr.BeforeFirst('.');
-            tmpstr.ToULong(&tmp);
-            ip = ip | (tmp << 8);
-            IPstr = IPstr.AfterFirst('.');
-            tmpstr = IPstr.BeforeFirst('.');
-            tmpstr.ToULong(&tmp);
-            ip = ip | tmp;
-            odp.ipAddress = ip;
-            break;
-#ifdef __WINDOWS__
-        case 2:
-            odp.deviceType = DEV_LPT1;
-            odp.lptBaseAddress = 0x378;
-            break;
-        case 3:
-            odp.deviceType = DEV_LPT2;
-            odp.lptBaseAddress = 0x278;
-            break;
-        case 4:
-            odp.deviceType = DEV_LPT3;
-            odp.lptBaseAddress = 0x3BC;
-            break;
-#else
-        case 2:
-            odp.deviceType = DEV_USB1;
-            break;
-        case 3:
-            odp.deviceType = DEV_USB2;
-            break;
-        case 4:
-            odp.deviceType = DEV_USB3;
-            break;
+    OpenDeviceParams odp = { 0 };
 
+    short err;
+
+    switch (resp) {
+    case 0:
+        //          wxMessageBox(_("2: USB selected"));
+        odp.deviceType = DEV_USB;
+        QueryUSBResults usbp;
+        //          wxMessageBox(_("3: Sending Query USB"));
+        err = SBIGUnivDrvCommand(CC_QUERY_USB, 0, &usbp);
+        //          wxMessageBox(_("4: Query sent"));
+        //          wxMessageBox(wxString::Format("5: %u cams found",usbp.camerasFound));
+        if (usbp.camerasFound > 1)
+        {
+            //              wxMessageBox(_("5a: Enumerating cams"));
+            wxArrayString USBNames;
+            int i;
+            for (i = 0; i<usbp.camerasFound; i++)
+                USBNames.Add(usbp.usbInfo[i].name);
+            i = wxGetSingleChoiceIndex(_("Select USB camera"), _("Camera name"), USBNames);
+            if (i == -1)
+                return true;
+            if (i == 0) odp.deviceType = DEV_USB1;
+            else if (i == 1) odp.deviceType = DEV_USB2;
+            else if (i == 2) odp.deviceType = DEV_USB3;
+            else odp.deviceType = DEV_USB4;
+        }
+        break;
+    case 1: {
+        odp.deviceType = DEV_ETH;
+        wxString IPstr = wxGetTextFromUser(_("IP address"), _("Enter IP address"),
+            pConfig->Profile.GetString("/camera/sbig/ipaddr", _T("")));
+        if (IPstr.length() == 0)
+        {
+            return true;
+        }
+        pConfig->Profile.SetString("/camera/sbig/ipaddr", IPstr);
+        wxString tmpstr = IPstr.BeforeFirst('.');
+        unsigned long tmp;
+        tmpstr.ToULong(&tmp);
+        unsigned long ip = tmp << 24;
+        IPstr = IPstr.AfterFirst('.');
+        tmpstr = IPstr.BeforeFirst('.');
+        tmpstr.ToULong(&tmp);
+        ip = ip | (tmp << 16);
+        IPstr = IPstr.AfterFirst('.');
+        tmpstr = IPstr.BeforeFirst('.');
+        tmpstr.ToULong(&tmp);
+        ip = ip | (tmp << 8);
+        IPstr = IPstr.AfterFirst('.');
+        tmpstr = IPstr.BeforeFirst('.');
+        tmpstr.ToULong(&tmp);
+        ip = ip | tmp;
+        odp.ipAddress = ip;
+        break;
+    }
+#ifdef __WINDOWS__
+    case 2:
+        odp.deviceType = DEV_LPT1;
+        odp.lptBaseAddress = 0x378;
+        break;
+    case 3:
+        odp.deviceType = DEV_LPT2;
+        odp.lptBaseAddress = 0x278;
+        break;
+    case 4:
+        odp.deviceType = DEV_LPT3;
+        odp.lptBaseAddress = 0x3BC;
+        break;
+#else
+    case 2:
+        odp.deviceType = DEV_USB1;
+        break;
+    case 3:
+        odp.deviceType = DEV_USB2;
+        break;
+    case 4:
+        odp.deviceType = DEV_USB3;
+        break;
 #endif
     }
+
+    pConfig->Profile.SetInt("/camera/sbig/deviceType", odp.deviceType);
+    pConfig->Profile.SetInt("/camera/sbig/ipAddress", odp.ipAddress);
+    pConfig->Profile.SetInt("/camera/sbig/lptBaseAddress", odp.lptBaseAddress);
+
+    return false;
+}
+
+static bool LoadOpenDeviceParams(OpenDeviceParams *odp)
+{
+    int deviceType = pConfig->Profile.GetInt("/camera/sbig/deviceType", -1);
+    if (deviceType == -1)
+        return false;
+
+    odp->deviceType = deviceType;
+    odp->ipAddress = pConfig->Profile.GetInt("/camera/sbig/ipAddress", 0);
+    odp->lptBaseAddress = pConfig->Profile.GetInt("/camera/sbig/lptBaseAddress", 0);
+
+    return true;
+}
+
+bool Camera_SBIGClass::HandleSelectCameraButtonClick(wxCommandEvent& evt)
+{
+    if (LoadDriver())
+        SelectInterfaceAndDevice();
+    return true; // handled
+}
+
+bool Camera_SBIGClass::Connect(const wxString& camId)
+{
+    // DEAL WITH PIXEL ASPECT RATIO
+    // DEAL WITH ASKING ABOUT WHICH INTERFACE
+
+    if (!LoadDriver())
+        return true;
+
+    OpenDeviceParams odp;
+
+    if (!LoadOpenDeviceParams(&odp))
+    {
+        bool err = SelectInterfaceAndDevice();
+        if (err)
+        {
+            Disconnect();
+            return true;
+        }
+        LoadOpenDeviceParams(&odp);
+    }
+
+    short err;
+
     // Attempt connection
-//  wxMessageBox(wxString::Format("6: Opening dev %u",odp.deviceType));
     err = SBIGUnivDrvCommand(CC_OPEN_DEVICE, &odp, NULL);
-    if ( err != CE_NO_ERROR ) {
+    if (err != CE_NO_ERROR)
+    {
         wxMessageBox (wxString::Format("Cannot open SBIG camera: Code %d",err), _("Error"));
         Disconnect();
         return true;
@@ -222,7 +290,8 @@ bool Camera_SBIGClass::Connect()
     // Establish link
     EstablishLinkResults elr;
     err = SBIGUnivDrvCommand(CC_ESTABLISH_LINK, NULL, &elr);
-    if ( err != CE_NO_ERROR ) {
+    if (err != CE_NO_ERROR)
+    {
         wxMessageBox (wxString::Format("Link to SBIG camera failed: Code %d",err), _("Error"));
         Disconnect();
         return true;
@@ -234,33 +303,50 @@ bool Camera_SBIGClass::Connect()
     GetCCDInfoResults0 gcir0;
     gcip.request = CCD_INFO_TRACKING;
     err = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir0);
-    if ( err == CE_NO_ERROR ) {
-        resp = wxMessageBox(wxString::Format("Tracking CCD found, use it?\n\nNo = use main image CCD"),_("CCD Choice"),wxYES_NO | wxICON_QUESTION);
-        if (resp == wxYES) {
+    if (err == CE_NO_ERROR)
+    {
+        int resp = wxMessageBox(wxString::Format("Tracking CCD found, use it?\n\nNo = use main image CCD"), _("CCD Choice"), wxYES_NO | wxICON_QUESTION);
+        if (resp == wxYES)
             UseTrackingCCD = true;
-            FullSize = wxSize((int) gcir0.readoutInfo->width,(int) gcir0.readoutInfo->height);
-            unsigned long bcd = gcir0.readoutInfo->pixelWidth > gcir0.readoutInfo->pixelHeight ? gcir0.readoutInfo->pixelWidth : gcir0.readoutInfo->pixelHeight;
-            PixelSize = (double)bcd2long(bcd) / 100.0;
-        }
     }
-    if (!UseTrackingCCD) {
-//      wxMessageBox(_("No tracking CCD - using main/only imager"));
-//      UseTrackingCCD = false;
+    if (!UseTrackingCCD)
+    {
         gcip.request = CCD_INFO_IMAGING;
         err = SBIGUnivDrvCommand(CC_GET_CCD_INFO, &gcip, &gcir0);
-        if (err != CE_NO_ERROR) {
+        if (err != CE_NO_ERROR)
+        {
             wxMessageBox(_("Error getting info on main CCD"), _("Error"));
             Disconnect();
             return true;
         }
-        FullSize = wxSize((int) gcir0.readoutInfo->width,(int) gcir0.readoutInfo->height);
-        unsigned long bcd = gcir0.readoutInfo->pixelWidth > gcir0.readoutInfo->pixelHeight ? gcir0.readoutInfo->pixelWidth : gcir0.readoutInfo->pixelHeight;
-        PixelSize = (double)bcd2long(bcd) / 100.0;
     }
 
-//  wxMessageBox(wxString::Format("%s (%u): %dx%d (%d)",gcir0.name,gcir0.cameraType, FullSize.GetWidth(),
-//      FullSize.GetHeight(),(int) UseTrackingCCD));
-    Name = wxString(gcir0.name);
+    MaxBinning = 1;
+    for (int i = 0; i < gcir0.readoutModes; i++)
+    {
+        int mode = gcir0.readoutInfo[i].mode;
+        if (mode == RM_1X1 || mode == RM_2X2)
+        {
+            int idx = mode == RM_1X1 ? 0 : 1;
+            m_imageSize[idx] = wxSize(gcir0.readoutInfo[i].width, gcir0.readoutInfo[i].height);
+            if (mode == RM_1X1)
+            {
+                unsigned long bcd = wxMax(gcir0.readoutInfo[i].pixelWidth, gcir0.readoutInfo[i].pixelHeight);
+                PixelSize = (double) bcd2long(bcd) / 100.0;
+            }
+            else // RM_2x2
+                MaxBinning = 2;
+        }
+    }
+
+    if (Binning > MaxBinning)
+        Binning = MaxBinning;
+
+    FullSize = m_imageSize[Binning - 1];
+
+    Debug.Write(wxString::Format("SBIG: %s type=%u, UseTrackingCCD=%d, MaxBin = %hu, 1x1 size %d x %d, 2x2 size %d x %d\n", gcir0.name, gcir0.cameraType, UseTrackingCCD, MaxBinning, m_imageSize[0].x, m_imageSize[0].y, m_imageSize[1].x, m_imageSize[1].y));
+
+    Name = gcir0.name;
     Connected = true;
     return false;
 }
@@ -269,6 +355,7 @@ bool Camera_SBIGClass::Disconnect()
 {
     SBIGUnivDrvCommand(CC_CLOSE_DEVICE, NULL, NULL);
     SBIGUnivDrvCommand(CC_CLOSE_DRIVER, NULL, NULL);
+    m_driverLoaded = false;
     Connected = false;
     return false;
 }
@@ -293,7 +380,8 @@ bool Camera_SBIGClass::Capture(int duration, usImage& img, int options, const wx
         TakeSubframe = false;
     }
 
-//  StartExposureParams sep;
+    FullSize = m_imageSize[Binning - 1];
+
     StartExposureParams2 sep;
     EndExposureParams eep;
     QueryCommandStatusParams qcsp;
@@ -301,16 +389,18 @@ bool Camera_SBIGClass::Capture(int duration, usImage& img, int options, const wx
     ReadoutLineParams rlp;
     DumpLinesParams dlp;
 
-    if (UseTrackingCCD) {
-        sep.ccd          = CCD_TRACKING;
-        sep.abgState     = ABG_CLK_LOW7;
+    if (UseTrackingCCD)
+    {
+        sep.ccd      = CCD_TRACKING;
+        sep.abgState = ABG_CLK_LOW7;
         eep.ccd = CCD_TRACKING;
         rlp.ccd = CCD_TRACKING;
         dlp.ccd = CCD_TRACKING;
     }
-    else {
-        sep.ccd          = CCD_IMAGING;
-        sep.abgState     = ABG_LOW7;
+    else
+    {
+        sep.ccd      = CCD_IMAGING;
+        sep.abgState = ABG_LOW7;
         eep.ccd = CCD_IMAGING;
         rlp.ccd = CCD_IMAGING;
         dlp.ccd = CCD_IMAGING;
@@ -320,18 +410,20 @@ bool Camera_SBIGClass::Capture(int duration, usImage& img, int options, const wx
     sep.openShutter = ShutterClosed ? SC_CLOSE_SHUTTER : SC_OPEN_SHUTTER;
 
     // Setup readout mode (now needed by StartExposure 2)
-    sep.readoutMode = RM_1X1;
-    if (TakeSubframe) {
+    sep.readoutMode = Binning == 1 ? RM_1X1 : RM_2X2;
+    if (TakeSubframe)
+    {
         sep.top = subframe.x;
         sep.width = subframe.width;
         sep.left = subframe.y;
         sep.height = subframe.height;
     }
-    else {
-        sep.top=0;
-        sep.left=0;
-        sep.width=(unsigned short) FullSize.GetWidth();
-        sep.height=(unsigned short) FullSize.GetHeight();
+    else
+    {
+        sep.top = 0;
+        sep.left = 0;
+        sep.width = (unsigned short) FullSize.GetWidth();
+        sep.height = (unsigned short) FullSize.GetHeight();
     }
 
     // init memory
@@ -346,7 +438,7 @@ bool Camera_SBIGClass::Capture(int duration, usImage& img, int options, const wx
     short err = SBIGUnivDrvCommand(CC_START_EXPOSURE2, &sep, NULL);
     if (err != CE_NO_ERROR)
     {
-        DisconnectWithAlert(_("Cannot start exposure"));
+        DisconnectWithAlert(_("Cannot start exposure"), NO_RECONNECT);
         return true;
     }
 
@@ -363,11 +455,14 @@ bool Camera_SBIGClass::Capture(int duration, usImage& img, int options, const wx
     }
 
     qcsp.command = CC_START_EXPOSURE;
-    while (true) {  // wait for image to finish and d/l
+    while (true)
+    {
+        // wait for image to finish and d/l
         wxMilliSleep(20);
         err = SBIGUnivDrvCommand(CC_QUERY_COMMAND_STATUS, &qcsp, &qcsr);
-        if (err != CE_NO_ERROR) {
-            DisconnectWithAlert(_("Cannot poll exposure"));
+        if (err != CE_NO_ERROR)
+        {
+            DisconnectWithAlert(_("Cannot poll exposure"), NO_RECONNECT);
             return true;
         }
         if (UseTrackingCCD)
@@ -390,7 +485,7 @@ bool Camera_SBIGClass::Capture(int duration, usImage& img, int options, const wx
     // End exposure
     if (!StopExposure(&eep))
     {
-        DisconnectWithAlert(_("Cannot stop exposure"));
+        DisconnectWithAlert(_("Cannot stop exposure"), NO_RECONNECT);
         return true;
     }
 
@@ -413,11 +508,13 @@ bool Camera_SBIGClass::Capture(int duration, usImage& img, int options, const wx
 
         img.Clear();
 
-        for (int y=0; y<subframe.height; y++) {
-            unsigned short *dataptr = img.ImageData + subframe.x + (y+subframe.y)*FullSize.GetWidth();
+        for (int y = 0; y < subframe.height; y++)
+        {
+            unsigned short *dataptr = img.ImageData + subframe.x + (y + subframe.y) * FullSize.GetWidth();
             err = SBIGUnivDrvCommand(CC_READOUT_LINE, &rlp, dataptr);
-            if (err != CE_NO_ERROR) {
-                DisconnectWithAlert(_("Error downloading data"));
+            if (err != CE_NO_ERROR)
+            {
+                DisconnectWithAlert(_("Error downloading data"), NO_RECONNECT);
                 return true;
             }
         }
@@ -427,11 +524,13 @@ bool Camera_SBIGClass::Capture(int duration, usImage& img, int options, const wx
         rlp.pixelStart  = 0;
         rlp.pixelLength = (unsigned short) FullSize.GetWidth();
         unsigned short *dataptr = img.ImageData;
-        for (int y = 0; y<FullSize.GetHeight(); y++) {
+        for (int y = 0; y < FullSize.GetHeight(); y++)
+        {
             err = SBIGUnivDrvCommand(CC_READOUT_LINE, &rlp, dataptr);
             dataptr += FullSize.GetWidth();
-            if (err != CE_NO_ERROR) {
-                DisconnectWithAlert(_("Error downloading data"));
+            if (err != CE_NO_ERROR)
+            {
+                DisconnectWithAlert(_("Error downloading data"), NO_RECONNECT);
                 return true;
             }
         }

@@ -52,11 +52,17 @@ Camera_WDMClass::Camera_WDMClass()
     FullSize = wxSize(640, 480);     // should get overwritten on connect
     m_deviceNumber = -1;  // Which WDM device connected
     m_deviceMode = -1;
-    PropertyDialogType = PROPDLG_ANY;
+    PropertyDialogType = PROPDLG_WHEN_CONNECTED;
     HasDelayParam = false;
     HasPortNum = false;
     m_captureMode = NOT_CAPTURING;
     m_pVidCap = NULL;
+}
+
+wxByte Camera_WDMClass::BitsPerPixel()
+{
+    // individual frames are 8-bit, but stacking can use up to 16-bits
+    return 16;
 }
 
 bool Camera_WDMClass::CaptureCallback(CVRES status, CVImage* imagePtr, void* userParam)
@@ -79,10 +85,13 @@ bool Camera_WDMClass::CaptureCallback(CVRES status, CVImage* imagePtr, void* use
         int npixels = cam->FullSize.GetWidth() * cam->FullSize.GetHeight();
         unsigned short *dptr = cam->m_stackptr;
 
-        for (i=0; i<npixels; i++, dptr++)
+        for (i = 0; i < npixels; i++, dptr++)
         {
             unsigned short pixelValue = *imgdata++;
-            *dptr = *dptr + pixelValue;
+            unsigned int newval = (unsigned int) *dptr + pixelValue;
+            if (newval > 65535)
+                newval = 65535;
+            *dptr = (unsigned short) newval;
             sum += pixelValue;
         }
 
@@ -220,7 +229,13 @@ bool Camera_WDMClass::SelectDeviceAndMode()
     return error;
 }
 
-bool Camera_WDMClass::Connect()
+bool Camera_WDMClass::HandleSelectCameraButtonClick(wxCommandEvent& evt)
+{
+    SelectDeviceAndMode();
+    return true; // handled
+}
+
+bool Camera_WDMClass::Connect(const wxString& camId)
 {
     bool bError = false;
 

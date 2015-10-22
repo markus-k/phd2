@@ -53,6 +53,7 @@ class GearDialog : public wxDialog
     bool m_ascomScopeSelected;
     wxString m_lastCamera;
     bool m_camWarningIssued;
+    wxArrayString m_cameraIds;
 
     wxGridBagSizer *m_gearSizer;
 
@@ -61,6 +62,7 @@ class GearDialog : public wxDialog
     wxMenu *m_menuProfileManage;
 
     wxChoice *m_pCameras;
+    wxButton *m_selectCameraButton;
     wxButton *m_pSetupCameraButton;
     wxToggleButton *m_pConnectCameraButton;
 
@@ -101,6 +103,7 @@ public:
     bool DisconnectAll(wxString *error);
     void Shutdown(bool forced);
     bool IsEmptyProfile();
+    bool ReconnectCamera();
 
 private:
     void LoadGearChoices(void);
@@ -114,7 +117,7 @@ private:
     void UpdateConnectAllButtonState(void);
     void UpdateDisconnectAllButtonState(void);
     void UpdateButtonState(void);
-    void UpdateAdvancedDialog(void);
+    void UpdateAdvancedDialog(bool preLoad);
 
     void OnProfileChoice(wxCommandEvent& event);
     void OnButtonProfileManage(wxCommandEvent& event);
@@ -130,6 +133,9 @@ private:
     void OnChar(wxKeyEvent& event);
 
     void OnChoiceCamera(wxCommandEvent& event);
+    void OnButtonSelectCamera(wxCommandEvent& event);
+    void OnMenuSelectCamera(wxCommandEvent& evt);
+
     void OnButtonSetupCamera(wxCommandEvent& event);
     bool DoConnectCamera(void);
     void OnButtonConnectCamera(wxCommandEvent& event);

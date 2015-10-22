@@ -55,9 +55,13 @@ Camera_SAC42Class::Camera_SAC42Class()
     MaxExposure = 2000;
 }
 
+wxByte Camera_SAC42Class::BitsPerPixel()
+{
+    return 16; // camera is 8-bit but we can accumulate 16-bits
+}
 
-
-bool Camera_SAC42Class::Connect() {
+bool Camera_SAC42Class::Connect(const wxString& camId)
+{
 // returns true on error
     int retval;
 #ifdef SAC42
@@ -74,7 +78,8 @@ bool Camera_SAC42Class::Connect() {
     return false;
 }
 
-bool Camera_SAC42Class::Disconnect() {
+bool Camera_SAC42Class::Disconnect()
+{
 #ifdef SAC42
     FclUninitialize(&hDriver);
     Connected = false;
@@ -127,7 +132,7 @@ bool Camera_SAC42Class::Capture(int duration, usImage& img, int options, const w
         }
         retval = FclGetOneFrame(hDriver,CapInfo);  // get the frame
         if (retval) {
-            DisconnectWithAlert(_("Error capturing data from camera"));
+            DisconnectWithAlert(_("Error capturing data from camera"), NO_RECONNECT);
             delete[] buffer;
             return true;
         }
@@ -135,14 +140,17 @@ bool Camera_SAC42Class::Capture(int duration, usImage& img, int options, const w
         dptr = img.ImageData;
 
         if (firstimg) {
-            for (i=0; i<img.NPixels; i++, dptr++, bptr++) { // bring in image from camera's buffer
-                *dptr = (unsigned short) (*bptr);
-            firstimg = false;
+            for (i = 0; i < img.NPixels; i++, dptr++, bptr++) { // bring in image from camera's buffer
+                *dptr = (unsigned short) *bptr;
             }
+            firstimg = false;
         }
         else {
-            for (i=0; i<img.NPixels; i++, dptr++, bptr++) { // add in next image
-                *dptr += (unsigned short) (*bptr);
+            for (i = 0; i < img.NPixels; i++, dptr++, bptr++) { // add in next image
+                unsigned int sum = (unsigned int) *dptr + (unsigned short) *bptr;
+                if (sum > 65535)
+                    sum = 65535;
+                *dptr = sum;
             }
         }
     }

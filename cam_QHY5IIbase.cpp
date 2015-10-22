@@ -93,6 +93,11 @@ Camera_QHY5IIBase::Camera_QHY5IIBase()
     Color = false;
 }
 
+wxByte Camera_QHY5IIBase::BitsPerPixel()
+{
+    return 8;
+}
+
 static FARPROC WINAPI GetProc(HINSTANCE dll, LPCSTR name)
 {
     FARPROC p = GetProcAddress(dll, name);
@@ -104,7 +109,7 @@ static FARPROC WINAPI GetProc(HINSTANCE dll, LPCSTR name)
     return p;
 }
 
-bool Camera_QHY5IIBase::Connect()
+bool Camera_QHY5IIBase::Connect(const wxString& camId)
 {
     // returns true on error
 

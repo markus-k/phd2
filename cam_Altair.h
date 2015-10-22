@@ -44,27 +44,30 @@ class Camera_Altair : public GuideCamera
     bool m_capturing;
     int m_minGain;
     int m_maxGain;
-	HAltair m_handle;
-	volatile bool m_frameReady;
-
+    HAltair m_handle;
+    volatile bool m_frameReady;
+	bool ReduceResolution;
 public:
     Camera_Altair();
     ~Camera_Altair();
 
+    bool    EnumCameras(wxArrayString& names, wxArrayString& ids);
     bool    Capture(int duration, usImage& img, int options, const wxRect& subframe);
-    bool    Connect();
+    bool    Connect(const wxString& camId);
     bool    Disconnect();
 
     bool    ST4PulseGuideScope(int direction, int duration);
     void    ClearGuidePort();
 
-	void	FrameReady();
+    void    FrameReady();
+	void 	ShowPropertyDialog();
 
-    virtual bool HasNonGuiCapture(void) { return true; }
-    virtual bool ST4HasNonGuiMove(void) { return true; }
+    bool HasNonGuiCapture() { return true; }
+    bool ST4HasNonGuiMove() { return true; }
+    wxByte BitsPerPixel();
 
 private:
-    bool StopCapture(void);
+    bool StopCapture();
 };
 
 #endif

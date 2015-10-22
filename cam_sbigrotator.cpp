@@ -53,7 +53,7 @@ Camera_SBIGRotatorClass::~Camera_SBIGRotatorClass()
     delete m_pSubcamera;
 }
 
-bool Camera_SBIGRotatorClass::Connect()
+bool Camera_SBIGRotatorClass::Connect(const wxString& camId)
 {
     bool bError = false;
 
@@ -81,7 +81,7 @@ bool Camera_SBIGRotatorClass::Connect()
 
         m_pSubcamera = new Camera_SBIGClass();
 
-        bError = m_pSubcamera->Connect();
+        bError = m_pSubcamera->Connect(camId);
         Connected = m_pSubcamera->Connected;
 
         FullSize = m_pSubcamera->FullSize;
@@ -97,7 +97,23 @@ bool Camera_SBIGRotatorClass::Connect()
     return bError;
 }
 
-bool Camera_SBIGRotatorClass::Disconnect() {
+bool Camera_SBIGRotatorClass::HasNonGuiCapture()
+{
+    return m_pSubcamera && m_pSubcamera->HasNonGuiCapture();
+}
+
+bool Camera_SBIGRotatorClass::ST4HasNonGuiMove()
+{
+    return m_pSubcamera && m_pSubcamera->ST4HasNonGuiMove();
+}
+
+wxByte Camera_SBIGRotatorClass::BitsPerPixel()
+{
+    return m_pSubcamera ? m_pSubcamera->BitsPerPixel() : 0;
+}
+
+bool Camera_SBIGRotatorClass::Disconnect()
+{
     m_pSubcamera->Disconnect();
     Connected = m_pSubcamera->Connected;
     return false;

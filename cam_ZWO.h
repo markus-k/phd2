@@ -38,26 +38,31 @@
 
 class Camera_ZWO : public GuideCamera
 {
+    wxRect m_maxSize;
     wxRect m_frame;
+    unsigned short m_prevBinning;
     unsigned char *m_buffer;
     bool m_capturing;
     int m_cameraId;
     int m_minGain;
     int m_maxGain;
+    bool m_isColor;
 
 public:
     Camera_ZWO();
     ~Camera_ZWO();
 
-    bool    Capture(int duration, usImage& img, int options, const wxRect& subframe);
-    bool    Connect();
-    bool    Disconnect();
+    bool EnumCameras(wxArrayString& names, wxArrayString& ids);
+    bool Capture(int duration, usImage& img, int options, const wxRect& subframe);
+    bool Connect(const wxString& camId);
+    bool Disconnect();
 
     bool    ST4PulseGuideScope(int direction, int duration);
     void    ClearGuidePort();
 
-    virtual bool HasNonGuiCapture(void) { return true; }
-    virtual bool ST4HasNonGuiMove(void) { return true; }
+    bool HasNonGuiCapture() { return true; }
+    bool ST4HasNonGuiMove() { return true; }
+    wxByte BitsPerPixel();
 
 private:
     bool StopCapture(void);

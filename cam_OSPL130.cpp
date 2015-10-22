@@ -17,6 +17,20 @@
 #include "cam_OSPL130.h"
 #include "cameras/OSPL130API.h"
 
+static bool DLLExists(const wxString& DLLName)
+{
+    wxStandardPathsBase& StdPaths = wxStandardPaths::Get();
+    if (wxFileExists(StdPaths.GetExecutablePath().BeforeLast(PATHSEPCH) + PATHSEPSTR + DLLName))
+        return true;
+    if (wxFileExists(StdPaths.GetExecutablePath().BeforeLast(PATHSEPCH) + PATHSEPSTR + ".." + PATHSEPSTR + DLLName))
+        return true;
+    if (wxFileExists(wxGetOSDirectory() + PATHSEPSTR + DLLName))
+        return true;
+    if (wxFileExists(wxGetOSDirectory() + PATHSEPSTR + "system32" + PATHSEPSTR + DLLName))
+        return true;
+    return false;
+}
+
 Camera_OpticstarPL130Class::Camera_OpticstarPL130Class()
 {
     Connected = false;
@@ -27,9 +41,13 @@ Camera_OpticstarPL130Class::Camera_OpticstarPL130Class()
     Color = false;
 }
 
+wxByte Camera_OpticstarPL130Class::BitsPerPixel()
+{
+    return 16;
+}
 
-
-bool Camera_OpticstarPL130Class::Connect() {
+bool Camera_OpticstarPL130Class::Connect(const wxString& camId)
+{
 // returns true on error
     int retval;
     if (!DLLExists("OSPL130RT.dll")) {
@@ -41,18 +59,15 @@ bool Camera_OpticstarPL130Class::Connect() {
         wxMessageBox("Cannot init camera",_("Error"),wxOK | wxICON_ERROR);
         return true;
     }
-    RawData = new unsigned char [2621440];  //
 //OSPL130_SetGain(6);
     Connected = true;
     return false;
 }
 
-
-bool Camera_OpticstarPL130Class::Disconnect() {
+bool Camera_OpticstarPL130Class::Disconnect()
+{
     OSPL130_Finalize();
     Connected = false;
-    if (RawData) delete [] RawData;
-    RawData = NULL;
     return false;
 }
 
@@ -85,8 +100,6 @@ bool Camera_OpticstarPL130Class::Capture(int duration, usImage& img, int options
     }
     // Download
     OSPL130_GetRawImage(0,0,FullSize.GetWidth(),FullSize.GetHeight(), (void *) img.ImageData);
-    unsigned short *dataptr;
-    dataptr = img.ImageData;
     // byte swap
 
     if (options & CAPTURE_SUBTRACT_DARK) SubtractDark(img);

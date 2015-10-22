@@ -43,15 +43,16 @@ class Camera_SSPIAGClass : public GuideCamera
 
 public:
     bool    Capture(int duration, usImage& img, int options, const wxRect& subframe);
-    bool    Connect();
+    bool    Connect(const wxString& camId);
     bool    Disconnect();
     void    InitCapture();
 
     bool    ST4PulseGuideScope(int direction, int duration);
     void    ClearGuidePort();
 
-    bool HasNonGuiCapture(void) { return true; }
-    bool ST4HasNonGuiMove(void) { return true; }
+    bool HasNonGuiCapture() { return true; }
+    bool ST4HasNonGuiMove() { return true; }
+    wxByte BitsPerPixel();
 
     Camera_SSPIAGClass();
 };

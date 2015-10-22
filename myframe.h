@@ -82,6 +82,18 @@ typedef void alert_fn(long);
 
 class MyFrameConfigDialogPane : public ConfigDialogPane
 {
+
+public:
+    MyFrameConfigDialogPane(wxWindow *pParent, MyFrame *pFrame);
+    virtual ~MyFrameConfigDialogPane(void) {};
+
+    void LayoutControls(BrainCtrlIdMap& CtrlMap);
+    virtual void LoadValues(void) {};
+    virtual void UnloadValues(void) {};
+};
+
+class MyFrameConfigDialogCtrlSet : public ConfigDialogCtrlSet
+{
     MyFrame *m_pFrame;
     wxCheckBox *m_pResetConfiguration;
     wxCheckBox *m_pResetDontAskAgain;
@@ -100,16 +112,14 @@ class MyFrameConfigDialogPane : public ConfigDialogPane
     wxComboBox *m_autoExpDurationMin;
     wxComboBox *m_autoExpDurationMax;
     wxSpinCtrlDouble *m_autoExpSNR;
-
     void OnDirSelect(wxCommandEvent& evt);
 
 public:
-    MyFrameConfigDialogPane(wxWindow *pParent, MyFrame *pFrame);
-    virtual ~MyFrameConfigDialogPane(void);
+    MyFrameConfigDialogCtrlSet(MyFrame *pFrame, AdvancedDialog* pAdvancedDialog, BrainCtrlIdMap& CtrlMap);
+    virtual ~MyFrameConfigDialogCtrlSet(void) {};
 
     virtual void LoadValues(void);
     virtual void UnloadValues(void);
-
     int GetFocalLength(void);
     void SetFocalLength(int val);
 };
@@ -133,6 +143,7 @@ protected:
     void SetAutoLoadCalibration(bool val);
 
     friend class MyFrameConfigDialogPane;
+    friend class MyFrameConfigDialogCtrlSet;
     friend class WorkerThread;
 
 private:
@@ -199,6 +210,7 @@ public:
     Star::FindMode m_starFindMode;
     bool m_rawImageMode;
     bool m_rawImageModeWarningDone;
+    wxSize m_prevDarkFrameSize;
 
     void RegisterTextCtrl(wxTextCtrl *ctrl);
     void OnQuit(wxCommandEvent& evt);
@@ -260,6 +272,7 @@ public:
     void OnImportCamCal(wxCommandEvent& evt);
 
     void OnExposeComplete(wxThreadEvent& evt);
+    void OnExposeComplete(usImage *image, bool err);
     void OnMoveComplete(wxThreadEvent& evt);
     void LoadProfileSettings(void);
     void UpdateTitle(void);
@@ -309,6 +322,7 @@ public:
     static void PlaceWindowOnScreen(wxWindow *window, int x, int y);
 
     MyFrameConfigDialogPane *GetConfigDialogPane(wxWindow *pParent);
+    MyFrameConfigDialogCtrlSet *GetConfigDlgCtrlSet(MyFrame *pFrame, AdvancedDialog *pAdvancedDialog, BrainCtrlIdMap& CtrlMap);
 
     struct EXPOSE_REQUEST
     {
@@ -352,7 +366,7 @@ public:
     void UpdateButtonsStatus(void);
     void UpdateCalibrationStatus(void);
 
-    static double GetPixelScale(double pixelSizeMicrons, int focalLengthMm);
+    static double GetPixelScale(double pixelSizeMicrons, int focalLengthMm, int binning);
     double GetCameraPixelScale(void) const;
 
     void Alert(const wxString& msg, int flags = wxICON_EXCLAMATION);
@@ -361,6 +375,7 @@ public:
     wxString GetSettingsSummary();
     wxString ExposureDurationSummary(void) const;
     wxString PixelScaleSummary(void) const;
+    void TryReconnect(void);
 
     double TimeSinceGuidingStarted(void) const;
 
@@ -379,12 +394,15 @@ private:
     alert_fn *m_alertFn;
     long m_alertFnArg;
 
+    std::vector<time_t> m_cameraReconnectAttempts; // for rate-limiting camera reconnect attempts
+
     bool StartWorkerThread(WorkerThread*& pWorkerThread);
     bool StopWorkerThread(WorkerThread*& pWorkerThread);
     void OnSetStatusText(wxThreadEvent& event);
     void DoAlert(const alert_params& params);
     void OnAlertButton(wxCommandEvent& evt);
     void OnAlertFromThread(wxThreadEvent& event);
+    void OnReconnectCameraFromThread(wxThreadEvent& event);
     void OnStatusbarTimerEvent(wxTimerEvent& evt);
     void OnMessageBoxProxy(wxCommandEvent& evt);
     void SetupMenuBar(void);
@@ -395,6 +413,7 @@ private:
     int GetTextWidth(wxControl *pControl, const wxString& string);
     void SetComboBoxWidth(wxComboBox *pComboBox, unsigned int extra);
     void FinishStop(void);
+    void DoTryReconnect(void);
 
     // and of course, an event table
     DECLARE_EVENT_TABLE()
@@ -443,6 +462,9 @@ enum {
         GEAR_PROFILE_WIZARD,
 
         GEAR_CHOICE_CAMERA,
+        GEAR_BUTTON_SELECT_CAMERA,
+        MENU_SELECT_CAMERA_BEGIN, // a range of ids camera selection popup menu
+        MENU_SELECT_CAMERA_END = MENU_SELECT_CAMERA_BEGIN + 10,
         GEAR_BUTTON_SETUP_CAMERA,
         GEAR_BUTTON_CONNECT_CAMERA,
         GEAR_BUTTON_DISCONNECT_CAMERA,
@@ -573,9 +595,9 @@ inline static wxSize StringSize(const wxWindow *window, const wxString& s, int e
     return wxSize(StringWidth(window, s) + extra, -1);
 }
 
-inline double MyFrame::GetPixelScale(double pixelSizeMicrons, int focalLengthMm)
+inline double MyFrame::GetPixelScale(double pixelSizeMicrons, int focalLengthMm, int binning)
 {
-    return 206.265 * pixelSizeMicrons / (double) focalLengthMm;
+    return 206.265 * pixelSizeMicrons * (double) binning / (double) focalLengthMm;
 }
 
 inline double MyFrame::TimeSinceGuidingStarted(void) const

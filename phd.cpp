@@ -160,7 +160,10 @@ bool PhdApp::OnInit()
     {
         Debug.AddLine("locale.AddCatalog failed");
     }
-    wxSetlocale(LC_NUMERIC, "English");
+    wxSetlocale(LC_NUMERIC, "C");
+
+    Debug.RemoveOldFiles();
+    GuideLog.RemoveOldFiles();
 
     pConfig->InitializeProfile();
 
@@ -188,9 +191,6 @@ int PhdApp::OnExit(void)
     assert(pCamera == NULL);
 
     PhdController::OnAppExit();
-
-    Debug.RemoveOldFiles();
-    GuideLog.RemoveOldFiles();
 
     delete pConfig;
     pConfig = NULL;

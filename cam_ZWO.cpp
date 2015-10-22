@@ -65,6 +65,11 @@ Camera_ZWO::~Camera_ZWO()
     delete[] m_buffer;
 }
 
+wxByte Camera_ZWO::BitsPerPixel()
+{
+    return 8;
+}
+
 inline static int cam_gain(int minval, int maxval, int pct)
 {
     return minval + pct * (maxval - minval) / 100;
@@ -136,7 +141,7 @@ static bool TryLoadDll(wxString *err)
 
 #endif // __WINDOWS__
 
-bool Camera_ZWO::Connect()
+bool Camera_ZWO::EnumCameras(wxArrayString& names, wxArrayString& ids)
 {
     wxString err;
     if (!TryLoadDll(&err))
@@ -147,30 +152,52 @@ bool Camera_ZWO::Connect()
 
     // Find available cameras
     int numCameras = ASIGetNumOfConnectedCameras();
-    if (numCameras == 0)
-    {
-        wxMessageBox(_T("No ZWO cameras detected."), _("Error"), wxOK | wxICON_ERROR);
-        return true;
-    }
 
     wxArrayString USBNames;
     for (int i = 0; i < numCameras; i++)
     {
         ASI_CAMERA_INFO info;
         if (ASIGetCameraProperty(&info, i) == ASI_SUCCESS)
-            USBNames.Add(info.Name);
+        {
+            names.Add(info.Name);
+            ids.Add(wxString::Format("%d"), i);
+        }
     }
 
-    int selected = 0;
+    return false;
+}
 
-    if (USBNames.Count() > 1)
+bool Camera_ZWO::Connect(const wxString& camId)
+{
+    wxString err;
+    if (!TryLoadDll(&err))
     {
-        selected = wxGetSingleChoiceIndex(_("Select camera"), _("Camera name"), USBNames);
-        if (selected == -1)
-            return true;
+        wxMessageBox(err, _("Error"), wxOK | wxICON_ERROR);
+        return true;
     }
 
-    wxYield();
+    long idx = -1;
+    if (camId == DEFAULT_CAMERA_ID)
+        idx = 0;
+    else
+        camId.ToLong(&idx);
+
+    // Find available cameras
+    int numCameras = ASIGetNumOfConnectedCameras();
+
+    if (numCameras == 0)
+    {
+        wxMessageBox(_T("No ZWO cameras detected."), _("Error"), wxOK | wxICON_ERROR);
+        return true;
+    }
+
+    if (idx < 0 || idx >= numCameras)
+    {
+        Debug.AddLine(wxString::Format("SXV: invalid camera id: '%s', ncams = %d", camId, numCameras));
+        return true;
+    }
+
+    int selected = (int) idx;
 
     ASI_CAMERA_INFO info;
     if (ASIGetCameraProperty(&info, selected) != ASI_SUCCESS)
@@ -178,8 +205,6 @@ bool Camera_ZWO::Connect()
         wxMessageBox(_("Failed to get camera properties for ZWO ASI Camera."), _("Error"), wxOK | wxICON_ERROR);
         return true;
     }
-
-    wxYield();
 
     if (ASIOpenCamera(selected) != ASI_SUCCESS)
     {
@@ -190,12 +215,31 @@ bool Camera_ZWO::Connect()
     m_cameraId = selected;
     Connected = true;
     Name = info.Name;
+    m_isColor = info.IsColorCam != ASI_FALSE;
 
-    FullSize.x = info.MaxWidth;
-    FullSize.y = info.MaxHeight;
+    int maxBin = 1;
+    for (int i = 0; i <= WXSIZEOF(info.SupportedBins); i++)
+    {
+        if (!info.SupportedBins[i])
+            break;
+        Debug.AddLine("ZWO: supported bin %d = %d", i, info.SupportedBins[i]);
+        if (info.SupportedBins[i] > maxBin)
+            maxBin = info.SupportedBins[i];
+    }
+    MaxBinning = maxBin;
+
+    if (Binning > MaxBinning)
+        Binning = MaxBinning;
+
+    m_maxSize.x = info.MaxWidth;
+    m_maxSize.y = info.MaxHeight;
+
+    FullSize.x = m_maxSize.x / Binning;
+    FullSize.y = m_maxSize.y / Binning;
+    m_prevBinning = Binning;
 
     delete[] m_buffer;
-    m_buffer = new unsigned char[FullSize.x * FullSize.y];
+    m_buffer = new unsigned char[info.MaxWidth * info.MaxHeight];
 
     PixelSize = info.PixelSize;
 
@@ -231,6 +275,9 @@ bool Camera_ZWO::Connect()
             case ASI_BANDWIDTHOVERLOAD:
                 ASISetControlValue(m_cameraId, ASI_BANDWIDTHOVERLOAD, caps.MinValue, ASI_FALSE);
                 break;
+            case ASI_HARDWARE_BIN:
+                // this control is not present
+                break;
             default:
                 break;
             }
@@ -244,7 +291,7 @@ bool Camera_ZWO::Connect()
     Debug.AddLine("ZWO: frame (%d,%d)+(%d,%d)", m_frame.x, m_frame.y, m_frame.width, m_frame.height);
 
     ASISetStartPos(m_cameraId, m_frame.GetLeft(), m_frame.GetTop());
-    ASISetROIFormat(m_cameraId, m_frame.GetWidth(), m_frame.GetHeight(), 1, ASI_IMG_Y8);
+    ASISetROIFormat(m_cameraId, m_frame.GetWidth(), m_frame.GetHeight(), Binning, ASI_IMG_RAW8);
 
     return false;
 }
@@ -301,6 +348,15 @@ static void flush_buffered_image(int cameraId, usImage& img)
 
 bool Camera_ZWO::Capture(int duration, usImage& img, int options, const wxRect& subframe)
 {
+    bool binning_change = false;
+    if (Binning != m_prevBinning)
+    {
+        FullSize.x = m_maxSize.x / Binning;
+        FullSize.y = m_maxSize.y / Binning;
+        m_prevBinning = Binning;
+        binning_change = true;
+    }
+
     if (img.Init(FullSize))
     {
         DisconnectWithAlert(CAPT_FAIL_MEMORY);
@@ -360,13 +416,13 @@ bool Camera_ZWO::Capture(int duration, usImage& img, int options, const wxRect& 
         Debug.AddLine("ZWO: frame (%d,%d)+(%d,%d)", m_frame.x, m_frame.y, m_frame.width, m_frame.height);
     }
 
-    if (size_change)
+    if (size_change || binning_change)
     {
         StopCapture();
 
-        ASI_ERROR_CODE status = ASISetROIFormat(m_cameraId, frame.GetWidth(), frame.GetHeight(), 1, ASI_IMG_Y8);
+        ASI_ERROR_CODE status = ASISetROIFormat(m_cameraId, frame.GetWidth(), frame.GetHeight(), Binning, ASI_IMG_RAW8);
         if (status != ASI_SUCCESS)
-            Debug.AddLine("ZWO: setImageFormat(%d,%d) => %d", frame.GetWidth(), frame.GetHeight(), status);
+            Debug.AddLine("ZWO: setImageFormat(%d,%d,%hu) => %d", frame.GetWidth(), frame.GetHeight(), Binning, status);
     }
 
     if (pos_change)
@@ -441,7 +497,10 @@ bool Camera_ZWO::Capture(int duration, usImage& img, int options, const wxRect& 
             img.ImageData[i] = m_buffer[i];
     }
 
-    if (options & CAPTURE_SUBTRACT_DARK) SubtractDark(img);
+    if (options & CAPTURE_SUBTRACT_DARK)
+        SubtractDark(img);
+    if (m_isColor && Binning == 1 && (options & CAPTURE_RECON))
+        QuickLRecon(img);
 
     return false;
 }
@@ -479,5 +538,11 @@ void  Camera_ZWO::ClearGuidePort()
     ASIPulseGuideOff(m_cameraId, ASI_GUIDE_EAST);
     ASIPulseGuideOff(m_cameraId, ASI_GUIDE_WEST);
 }
+
+#if defined(__APPLE__)
+// workaround link error for missing symbol ___exp10 from libASICamera2.a
+#include <math.h>
+extern "C" double __exp10(double x) { return pow(10.0, x); }
+#endif
 
 #endif // ZWO_ASI
