@@ -32,14 +32,8 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define GP_DEBUG_MATLAB_ 0
-#define GP_DEBUG_STATUS_ 0
 
 #include "phd.h"
-
-#if GP_DEBUG_MATLAB_
-#include "UDPGuidingInteraction.h"
-#endif
 
 #include "guide_algorithm_gaussian_process.h"
 #include <wx/stopwatch.h>
@@ -256,17 +250,10 @@ struct GuideGaussianProcess::gp_guide_parameters
     bool optimize_hyperparameters;
     bool optimize_sigma;
 
-#if GP_DEBUG_MATLAB_
-    UDPGuidingInteraction udpInteraction_;
-#endif
-
     covariance_functions::SquareExponentialPeriodic covariance_function_;
     GP gp_;
 
     gp_guide_parameters() :
-#if GP_DEBUG_MATLAB_
-      udpInteraction_("localhost", "1308", "1309"),
-#endif
       circular_buffer_parameters(200),
       timer_(),
       control_signal_(0.0),
@@ -875,48 +862,28 @@ double GuideGaussianProcess::result(double input)
     Eigen::VectorXd means = predictions.first;
     Eigen::VectorXd stds = predictions.second.diagonal();
 
-    double* timestamp_data = timestamps.data();
-    double* measurement_data = gear_error.data();
-    double* location_data = locations.data();
-    double* mean_data = means.data();
-    double* std_data = stds.data();
+    std::ofstream outfile;
+    outfile.open("measurement_data.csv", std::ios_base::out);
+    if(outfile.is_open()) {
+      outfile << "location, output\n";
+      for( int i = 0; i < timestamps.size(); ++i) {
+        outfile << std::setw(8) << timestamps[i] << "," << std::setw(8) << measurements[i] << "\n";
+      }
+    } else {
+      std::cout << "unable to write to file" << std::endl;
+    }
+    outfile.close();
 
-    double wait_time = 50;
-
-    bool sent = false;
-    bool received = false;
-
-    // Send the size of the buffer
-    double size = timestamps.size();
-    double size_buf[] = { size };
-    sent = parameters->udpInteraction_.SendToUDPPort(size_buf, 8);
-    wxMilliSleep(wait_time);
-
-    // Send modified measurements
-    sent = parameters->udpInteraction_.SendToUDPPort(measurement_data, size * 8);
-    wxMilliSleep(wait_time);
-
-    // Send timestamps
-    sent = parameters->udpInteraction_.SendToUDPPort(timestamp_data, size * 8);
-    wxMilliSleep(wait_time);
-
-    // size of predictions
-    double loc_size = N;
-    double loc_size_buf[] = { loc_size };
-    sent = parameters->udpInteraction_.SendToUDPPort(loc_size_buf, 8);
-    wxMilliSleep(wait_time);
-
-    // Send mean
-    sent = parameters->udpInteraction_.SendToUDPPort(location_data, loc_size * 8);
-    wxMilliSleep(wait_time);
-
-    // Send mean
-    sent = parameters->udpInteraction_.SendToUDPPort(mean_data, loc_size * 8);
-    wxMilliSleep(wait_time);
-
-    // Send std
-    sent = parameters->udpInteraction_.SendToUDPPort(std_data, loc_size * 8);
-    wxMilliSleep(wait_time);
+    outfile.open("gp_data.csv", std::ios_base::out);
+    if(outfile.is_open()) {
+      outfile << "location, mean, std\n";
+      for( int i = 0; i < locations.size(); ++i) {
+        outfile << std::setw(8) << locations[i] << "," << std::setw(8) << means[i] << "," << std::setw(8) << stds[i] << "\n";
+      }
+    } else {
+      std::cout << "unable to write to file" << std::endl;
+    }
+    outfile.close();
 #endif
 
     return parameters->control_signal_;
