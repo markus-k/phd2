@@ -138,6 +138,19 @@ inline bool isInf(double x) {
          x == -std::numeric_limits<double>::infinity();
 }
 
+/*!
+ * Calculates the spectrum of a data vector.
+ */
+// Eigen::VectorXd compute_spectrum(Eigen::VectorXd &data);
+
+/*!
+ * Calculates the complex DFT with the FFT algorithm.
+ *
+ * Implemented according to:
+ * https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm
+ */
+Eigen::VectorXcd ditfft2(Eigen::VectorXd data, int N, int S);
+
 }  // namespace math_tools
 
 #endif  // define GP_MATH_TOOLS_H

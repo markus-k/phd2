@@ -243,6 +243,31 @@ double generate_uniform_random_double() {
   return randomMatrix(0,0);
 }
 
+// Eigen::VectorXd compute_spectrum(Eigen::VectorXd &data) {
+//   return data;
+// }
+
+Eigen::VectorXcd ditfft2(Eigen::VectorXd data, int N, int S) {
+
+  Eigen::VectorXcd result(N);
+
+  if(N==1) {
+    result(0) = data(0);
+  } else {
+    result.head(N/2) = ditfft2(data, N/2, 2*S);
+    result.tail(N/2) = ditfft2(data.segment(S,data.rows()-S), N/2, 2*S);
+    for(int k=0; k<N/2; ++k) {
+      std::complex<double> t = result(k);
+      std::complex<double> i(0, 1);
+      std::complex<double> twid = std::exp(-2*M_PI*i*static_cast<double>(k)/static_cast<double>(N));
+      result(k) = t + twid*result(k+N/2);
+      result(k+N/2) = t - twid*result(k+N/2);
+    }
+  }
+
+  return result;
+}
+
 }  // namespace math_tools
 
 

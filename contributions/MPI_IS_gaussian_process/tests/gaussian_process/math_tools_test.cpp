@@ -176,6 +176,31 @@ TEST(MathToolsTest, IsInfTest) {
   EXPECT_TRUE(math_tools::isInf(negative_log_0));
 }
 
+TEST(MathToolsTest, FFTTest) {
+  Eigen::VectorXd y(8);
+  y << 0, 1, 0, 1, 0, 1, 1, 1;
+
+  Eigen::VectorXd expected_result_real(8), expected_result_imag(8);
+
+  expected_result_real << 5, 0, -1, 0, -3, 0, -1, 0;
+  expected_result_imag << 0, 1, 0, -1, 0, 1, 0, -1;
+
+  Eigen::VectorXcd result(8);
+  result = math_tools::ditfft2(y, 8, 1);
+
+  Eigen::VectorXd result_real(8), result_imag(8);
+
+  result_real = result.real();
+  result_imag = result.imag();
+
+  double eps = 1E-6;
+
+  for(int i=0; i < result.rows(); ++i) {
+    EXPECT_NEAR(result_real(i), expected_result_real(i), eps);
+    EXPECT_NEAR(result_imag(i), expected_result_imag(i), eps);
+  }
+}
+
 int main(int argc, char **argv)
 {
   ::testing::InitGoogleTest(&argc, argv);
