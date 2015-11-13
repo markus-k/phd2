@@ -757,6 +757,51 @@ double GuideGaussianProcess::PredictGearError()
     // correct the datapoints by the polynomial fit
     gear_error -= linear_fit;
 
+    // optimize the hyperparameters if we have enough points already
+    if (parameters->min_points_for_optimisation > 0
+      && parameters->get_number_of_measurements() > parameters->min_points_for_optimisation)
+    {
+      // find periodicity parameter with FFT
+
+      // compute Hamming window to prevent too much spectral leakage
+      Eigen::VectorXd windowed_gear_error = gear_error.array() * math_tools::hamming_window(gear_error.rows()).array();
+
+      // compute the spectrum
+      int N_fft = 4096; 
+      std::pair<Eigen::VectorXd, Eigen::VectorXd> result = math_tools::compute_spectrum(windowed_gear_error, N_fft);
+
+      Eigen::ArrayXd amplitudes = result.first;
+      Eigen::ArrayXd frequencies = result.second;
+
+      double dt = (timestamps(timestamps.rows()-1) - timestamps(0))/timestamps.rows();
+      frequencies /= dt; // correct for the average time step width
+
+      Eigen::VectorXd periods = 1/frequencies.array();
+
+      assert(amplitudes.size() == frequencies.size());
+
+      Eigen::VectorXd::Index maxIndex;
+      amplitudes.maxCoeff(&maxIndex);
+      double period_length = 1 / frequencies(maxIndex);
+
+      Eigen::VectorXd optim = parameters->gp_.getHyperParameters();
+      optim[2] = std::log(period_length); // parameters are stored in log space
+      parameters->gp_.setHyperParameters(optim);
+
+      std::ofstream outfile;
+      outfile.open("spectrum_data.csv", std::ios_base::out);
+      if (outfile.is_open()) {
+          outfile << "period, amplitude\n";
+          for (int i = 0; i < amplitudes.size(); ++i) {
+              outfile << std::setw(8) << periods[i] << "," << std::setw(8) << amplitudes[i] << "\n";
+          }
+      }
+      else {
+          std::cout << "unable to write to file" << std::endl;
+      }
+      outfile.close();
+    }
+
     // inference of the GP with this new points
     parameters->gp_.infer(timestamps, gear_error);
 
@@ -801,34 +846,34 @@ double GuideGaussianProcess::result(double input)
     parameters->add_one_point(); // add new point here, since the control is for the next point in time
     HandleControls(parameters->control_signal_);
 
-    // optimize the hyperparameters if we have enough points already
-    if (parameters->min_points_for_optimisation > 0
-        && parameters->get_number_of_measurements() > parameters->min_points_for_optimisation)
-    {
-        // performing the optimisation
-        Eigen::VectorXd optim = parameters->gp_.optimizeHyperParameters(1); // only one linesearch
-        parameters->gp_.setHyperParameters(optim);
-    }
+//     // optimize the hyperparameters if we have enough points already
+//     if (parameters->min_points_for_optimisation > 0
+//         && parameters->get_number_of_measurements() > parameters->min_points_for_optimisation)
+//     {
+// //         // performing the optimisation
+// //         Eigen::VectorXd optim = parameters->gp_.optimizeHyperParameters(1); // only one linesearch
+// //         parameters->gp_.setHyperParameters(optim);
+//     }
 
-    // estimate the standard deviation in a simple way (no optimization)
-    if (parameters->min_points_for_optimisation > 0
-        && parameters->get_number_of_measurements() > parameters->min_points_for_optimisation)
-    {    // TODO: implement condition with some checkbox
-        Eigen::VectorXd gp_parameters = parameters->gp_.getHyperParameters();
-
-        int N = parameters->get_number_of_measurements();
-        Eigen::VectorXd measurements(N);
-
-        for(size_t i = 0; i < N; i++)
-        {
-            measurements(i) = parameters->circular_buffer_parameters[i].measurement;
-        }
-
-        double mean = measurements.mean();
-        // Eigen doesn't have var() yet, we have to compute it ourselves
-        gp_parameters(0) = std::log((measurements.array() - mean).pow(2).mean());
-        parameters->gp_.setHyperParameters(gp_parameters);
-    }
+//     // estimate the standard deviation in a simple way (no optimization)
+//     if (parameters->min_points_for_optimisation > 0
+//         && parameters->get_number_of_measurements() > parameters->min_points_for_optimisation)
+//     {    // TODO: implement condition with some checkbox
+//         Eigen::VectorXd gp_parameters = parameters->gp_.getHyperParameters();
+//
+//         int N = parameters->get_number_of_measurements();
+//         Eigen::VectorXd measurements(N);
+//
+//         for(size_t i = 0; i < N; i++)
+//         {
+//             measurements(i) = parameters->circular_buffer_parameters[i].measurement;
+//         }
+//
+//         double mean = measurements.mean();
+//         // Eigen doesn't have var() yet, we have to compute it ourselves
+//         gp_parameters(0) = std::log((measurements.array() - mean).pow(2).mean());
+//         parameters->gp_.setHyperParameters(gp_parameters);
+//     }
 
 // send the GP output to matlab for plotting
 #if GP_DEBUG_MATLAB_
