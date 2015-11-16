@@ -140,8 +140,15 @@ inline bool isInf(double x) {
 
 /*!
  * Calculates the spectrum of a data vector.
+ *
+ * Does pre-and postprocessing:
+ * - The data is zero-padded until the desired resolution is reached.
+ * - ditfft2 is called to compute the FFT.
+ * - The frequencies from the padding are removed.
+ * - The constant coefficient is removed.
+ * - A list of frequencies is generated.
  */
-// Eigen::VectorXd compute_spectrum(Eigen::VectorXd &data);
+std::pair< Eigen::VectorXd, Eigen::VectorXd > compute_spectrum(Eigen::VectorXd& data, int N = 0);
 
 /*!
  * Calculates the complex DFT with the FFT algorithm.

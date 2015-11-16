@@ -243,9 +243,29 @@ double generate_uniform_random_double() {
   return randomMatrix(0,0);
 }
 
-// Eigen::VectorXd compute_spectrum(Eigen::VectorXd &data) {
-//   return data;
-// }
+std::pair<Eigen::VectorXd, Eigen::VectorXd> compute_spectrum(Eigen::VectorXd &data, int N) {
+
+  int N_data = data.rows();
+
+  if(N<N_data) {
+    N = N_data;
+  }
+  N = std::ceil(std::log(N)/std::log(2));
+
+  Eigen::VectorXd padded_data = Eigen::VectorXd::Zero(N);
+  padded_data.head(N_data) = data;
+
+  Eigen::VectorXcd result = ditfft2(padded_data, N, 1);
+
+  int low_index = std::ceil(static_cast<double>(N)/static_cast<double>(N_data));
+
+  Eigen::VectorXd spectrum = result.segment(1+low_index,N/2).real().array().pow(2);
+
+  Eigen::VectorXd frequencies = Eigen::VectorXd::LinSpaced(N - low_index + 1, low_index, N/2);
+  frequencies /= N;
+
+  return std::make_pair(spectrum, frequencies);
+}
 
 Eigen::VectorXcd ditfft2(Eigen::VectorXd data, int N, int S) {
 
