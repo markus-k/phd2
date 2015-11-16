@@ -111,3 +111,9 @@ set_property(TARGET BFGSTest PROPERTY FOLDER "Unit tests/Contribution")
 add_test(NAME BFGS-1 COMMAND BFGSTest)
 
 
+
+# Sandbox
+add_executable(Sandbox ${gaussian_process_root_dir}/tests/gaussian_process/sandbox.cpp)
+target_link_libraries(GaussianProcessTest MPIIS_GP)
+target_include_directories(GaussianProcessTest  PRIVATE ${gaussian_process_root_dir}/tools)
+set_property(TARGET GaussianProcessTest PROPERTY FOLDER "Unit tests/Contribution")

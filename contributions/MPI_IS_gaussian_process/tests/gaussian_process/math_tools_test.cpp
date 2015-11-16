@@ -201,6 +201,27 @@ TEST(MathToolsTest, FFTTest) {
   }
 }
 
+TEST(MathToolsTest, SpectrumTest) {
+  Eigen::VectorXd y(8);
+  y << 1, 2, 1, 2, 1, 2, 1, 2;
+
+  Eigen::VectorXd expected_amplitudes(4), expected_frequencies(4);
+
+  expected_amplitudes << 0, 0, 0, 16;
+  expected_frequencies << 0.1250,    0.2500,    0.3750,    0.5000;
+
+  std::pair<Eigen::VectorXd, Eigen::VectorXd> result = math_tools::compute_spectrum(y, 8);
+  Eigen::VectorXd amplitudes = result.first;
+  Eigen::VectorXd frequencies = result.second;
+
+  double eps = 1E-6;
+
+  for(int i=0; i < amplitudes.rows(); ++i) {
+    EXPECT_NEAR(amplitudes(i), expected_amplitudes(i), eps);
+    EXPECT_NEAR(frequencies(i), expected_frequencies(i), eps);
+  }
+}
+
 int main(int argc, char **argv)
 {
   ::testing::InitGoogleTest(&argc, argv);
