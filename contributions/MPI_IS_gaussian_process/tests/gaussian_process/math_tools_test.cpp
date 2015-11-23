@@ -216,9 +216,22 @@ TEST(MathToolsTest, SpectrumTest) {
 
   double eps = 1E-6;
 
-  for(int i=0; i < amplitudes.rows(); ++i) {
+  for(int i=0; i < expected_amplitudes.rows(); ++i) {
     EXPECT_NEAR(amplitudes(i), expected_amplitudes(i), eps);
     EXPECT_NEAR(frequencies(i), expected_frequencies(i), eps);
+  }
+}
+
+TEST(MathToolsTest, HammingTest) {
+  Eigen::VectorXd expected_window(8);
+  expected_window << 0.0800, 0.2532, 0.6424, 0.9544, 0.9544, 0.6424, 0.2532, 0.0800;
+
+  Eigen::VectorXd window = math_tools::hamming_window(8);
+
+  double eps = 1E-4;
+
+  for(int i=0; i < expected_window.rows(); ++i) {
+    EXPECT_NEAR(window(i), expected_window(i), eps);
   }
 }
 

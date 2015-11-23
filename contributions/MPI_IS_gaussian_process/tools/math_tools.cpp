@@ -288,6 +288,16 @@ Eigen::VectorXcd ditfft2(Eigen::VectorXd data, int N, int S) {
   return result;
 }
 
+Eigen::VectorXd hamming_window(int N) {
+  double alpha = 0.54;
+  double beta = 0.46;
+
+  Eigen::VectorXd range = Eigen::VectorXd::LinSpaced(N,0,1);
+  Eigen::VectorXd window = alpha - beta*std::cos(2*M_PI*range.array());
+
+  return window;
+}
+
 }  // namespace math_tools
 
 

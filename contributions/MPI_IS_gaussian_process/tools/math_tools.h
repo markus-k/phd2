@@ -158,6 +158,11 @@ std::pair< Eigen::VectorXd, Eigen::VectorXd > compute_spectrum(Eigen::VectorXd& 
  */
 Eigen::VectorXcd ditfft2(Eigen::VectorXd data, int N, int S);
 
+/*!
+ * Computes a Hamming window (used to reduce spectral leakage of subsequent DFT).
+ */
+Eigen::VectorXd hamming_window(int N);
+
 }  // namespace math_tools
 
 #endif  // define GP_MATH_TOOLS_H
