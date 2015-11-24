@@ -767,7 +767,8 @@ double GuideGaussianProcess::PredictGearError()
       Eigen::VectorXd windowed_gear_error = gear_error.array() * math_tools::hamming_window(gear_error.rows()).array();
 
       // compute the spectrum
-      std::pair<Eigen::VectorXd, Eigen::VectorXd> result = math_tools::compute_spectrum(windowed_gear_error, 4096);
+      int N_fft = 4096; 
+      std::pair<Eigen::VectorXd, Eigen::VectorXd> result = math_tools::compute_spectrum(windowed_gear_error, N_fft);
 
       Eigen::ArrayXd amplitudes = result.first;
       Eigen::ArrayXd frequencies = result.second;
@@ -780,11 +781,25 @@ double GuideGaussianProcess::PredictGearError()
       assert(amplitudes.size() == frequencies.size());
 
       Eigen::VectorXd::Index maxIndex;
-      double period_length = amplitudes.maxCoeff(&maxIndex);
+      amplitudes.maxCoeff(&maxIndex);
+      double period_length = 1 / frequencies(maxIndex);
 
       Eigen::VectorXd optim = parameters->gp_.getHyperParameters();
-      optim[2] = period_length;
+      optim[2] = std::log(period_length); // parameters are stored in log space
       parameters->gp_.setHyperParameters(optim);
+
+      std::ofstream outfile;
+      outfile.open("spectrum_data.csv", std::ios_base::out);
+      if (outfile.is_open()) {
+          outfile << "period, amplitude\n";
+          for (int i = 0; i < amplitudes.size(); ++i) {
+              outfile << std::setw(8) << periods[i] << "," << std::setw(8) << amplitudes[i] << "\n";
+          }
+      }
+      else {
+          std::cout << "unable to write to file" << std::endl;
+      }
+      outfile.close();
     }
 
     // inference of the GP with this new points

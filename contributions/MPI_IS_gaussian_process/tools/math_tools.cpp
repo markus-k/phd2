@@ -257,7 +257,7 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> compute_spectrum(Eigen::VectorXd &da
 
   Eigen::VectorXcd result = ditfft2(padded_data, N, 1);
 
-  int low_index = std::round(static_cast<double>(N)/static_cast<double>(N_data));
+  int low_index = std::ceil(static_cast<double>(N)/static_cast<double>(N_data));
 
   Eigen::VectorXd spectrum = result.segment(low_index,N/2 - low_index + 1).array().abs().pow(2);
 
