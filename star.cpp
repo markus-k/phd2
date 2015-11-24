@@ -275,7 +275,7 @@ bool Star::Find(const usImage *pImg, int searchRegion, int base_x, int base_y, F
         Mass = mass;
         SNR = n > 0 && sigma_bg > 0.0 ? mass / (sigma_bg * n) : 0.0;
 
-        double const LOW_SNR = 3.0;
+        double const LOW_SNR = 2.0;
 
         if (mass < 10.0)
             Result = STAR_LOWMASS;
