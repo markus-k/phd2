@@ -370,6 +370,9 @@ GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
     parameter_priors::GammaPrior periodicity_prior2(prior_parameters2);
     parameters->gp_.setHyperPrior(periodicity_prior2, 2);
 
+    // enable the explicit basis function for the linear drift
+    parameters->gp_.enableExplicitTrend();
+
     reset();
 }
 
@@ -755,7 +758,7 @@ double GuideGaussianProcess::PredictGearError()
     linear_fit = weights.transpose()*feature_matrix;
 
     // correct the datapoints by the polynomial fit
-    gear_error -= linear_fit;
+    Eigen::VectorXd gear_error_detrend = gear_error - linear_fit;
 
     // optimize the hyperparameters if we have enough points already
     if (parameters->min_points_for_optimisation > 0
@@ -764,10 +767,10 @@ double GuideGaussianProcess::PredictGearError()
       // find periodicity parameter with FFT
 
       // compute Hamming window to prevent too much spectral leakage
-      Eigen::VectorXd windowed_gear_error = gear_error.array() * math_tools::hamming_window(gear_error.rows()).array();
+      Eigen::VectorXd windowed_gear_error = gear_error_detrend.array() * math_tools::hamming_window(gear_error_detrend.rows()).array();
 
       // compute the spectrum
-      int N_fft = 4096; 
+      int N_fft = 4096;
       std::pair<Eigen::VectorXd, Eigen::VectorXd> result = math_tools::compute_spectrum(windowed_gear_error, N_fft);
 
       Eigen::ArrayXd amplitudes = result.first;
