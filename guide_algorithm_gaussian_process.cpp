@@ -52,11 +52,13 @@ class GuideGaussianProcess::GuideGaussianProcessDialogPane : public ConfigDialog
     wxSpinCtrl       *m_pNbPointsOptimisation;
 
     wxSpinCtrlDouble *m_pHyperDiracNoise;
+    wxSpinCtrlDouble *m_pSE0KLengthScale;
+    wxSpinCtrlDouble *m_pSE0KSignalVariance;
     wxSpinCtrlDouble *m_pPKLengthScale;
     wxSpinCtrlDouble *m_pPKPeriodLength;
     wxSpinCtrlDouble *m_pPKSignalVariance;
-    wxSpinCtrlDouble *m_pSEKLengthScale;
-    wxSpinCtrlDouble *m_pSEKSignalVariance;
+    wxSpinCtrlDouble *m_pSE1KLengthScale;
+    wxSpinCtrlDouble *m_pSE1KSignalVariance;
     wxSpinCtrlDouble *m_pMixingParameter;
 
     wxCheckBox       *m_checkboxOptimization;
@@ -85,32 +87,42 @@ public:
                                                   wxSP_ARROW_KEYS, 0.0, 10.0, 1.0, 0.1);
         m_pHyperDiracNoise->SetDigits(2);
 
+        m_pSE0KLengthScale = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
+                                                 wxDefaultPosition,wxSize(width+30, -1),
+                                                 wxSP_ARROW_KEYS, 0.0, 50, 5, 0.1);
+        m_pSE0KLengthScale->SetDigits(2);
+
+        m_pSE1KSignalVariance = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
+                                                    wxDefaultPosition,wxSize(width+30, -1),
+                                                    wxSP_ARROW_KEYS, 0.0, 10, 1, 0.1);
+        m_pSE1KSignalVariance->SetDigits(2);
+
 
         m_pPKLengthScale = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                                 wxDefaultPosition,wxSize(width+30, -1),
-                                                wxSP_ARROW_KEYS, 0.0, 100, 5.0, 0.1);
+                                                wxSP_ARROW_KEYS, 0.0, 10, 1.0, 0.1);
         m_pPKLengthScale->SetDigits(2);
 
         m_pPKPeriodLength = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                                  wxDefaultPosition,wxSize(width+30, -1),
-                                                 wxSP_ARROW_KEYS, 0.0, 2000, 500, 1);
+                                                 wxSP_ARROW_KEYS, 50, 2000, 500, 1);
         m_pPKPeriodLength->SetDigits(2);
 
 
         m_pPKSignalVariance = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                                    wxDefaultPosition,wxSize(width+30, -1),
-                                                   wxSP_ARROW_KEYS, 0.0, 30, 1, 0.1);
+                                                   wxSP_ARROW_KEYS, 0.0, 30, 10, 0.1);
         m_pPKSignalVariance->SetDigits(2);
 
-        m_pSEKLengthScale = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
+        m_pSE1KLengthScale = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                                  wxDefaultPosition,wxSize(width+30, -1),
-                                                 wxSP_ARROW_KEYS, 0.0, 6000, 500, 0.1);
-        m_pSEKLengthScale->SetDigits(2);
+                                                 wxSP_ARROW_KEYS, 0.0, 5000, 500, 10);
+        m_pSE1KLengthScale->SetDigits(2);
 
-        m_pSEKSignalVariance = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
+        m_pSE1KSignalVariance = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                                  wxDefaultPosition,wxSize(width+30, -1),
-                                                 wxSP_ARROW_KEYS, 0.0, 30, 1, 0.1);
-        m_pSEKSignalVariance->SetDigits(2);
+                                                 wxSP_ARROW_KEYS, 0.0, 10, 1, 0.1);
+        m_pSE1KSignalVariance->SetDigits(2);
 
         // nb points between consecutive calls to the optimisation
         m_pNbPointsOptimisation = new wxSpinCtrl(pParent, wxID_ANY, wxEmptyString,
@@ -121,7 +133,7 @@ public:
                                                   wxDefaultPosition,wxSize(width+30, -1),
                                                   wxSP_ARROW_KEYS, 0.0, 1.0, 0.8, 0.01);
 
-		m_checkboxOptimization = new wxCheckBox(pParent, wxID_ANY, _T(""));
+        m_checkboxOptimization = new wxCheckBox(pParent, wxID_ANY, _T(""));
         m_checkboxOptimizationNoise = new wxCheckBox(pParent, wxID_ANY, _T(""));
 
         DoAdd(_("Control Gain"), m_pControlGain,
@@ -133,14 +145,19 @@ public:
                 "the result might be poor. Default = 25"));
 
         DoAdd(_("Min data points (optimization)"), m_pNbPointsOptimisation,
-              _("Minimal number of measurements to start optimizing the periodicity. If there are too little data points, "
-                "the optimization might not work. Default = 50"));
+              _("Minimal number of measurements to start estimating the periodicity. If there are too little data points, "
+                "the estimation might not work. Default = 100"));
 
         // hyperparameters
         DoAdd(_("Measurement noise"), m_pHyperDiracNoise,
               _("The measurement noise is the expected uncertainty due to seeing and camera noise. "
                 "If the measurement noise is too low, the Gaussian process might be too rigid. Try to upper bound your "
                 "measurement uncertainty. Default = 1.0"));
+        DoAdd(_("Length scale [SE]"), m_pSE0KLengthScale,
+              _("The length scale of the short range non-periodic parts of the gear error. This is essentially a low-pass "
+                "filter and the length scale defines the corner frequency. Default = 5"));
+        DoAdd(_("Signal Variance [SE]"), m_pSE0KSignalVariance,
+              _("Signal Variance of the small variations. Default = 1"));
         DoAdd(_("Length scale [PER]"), m_pPKLengthScale,
               _("The length scale defines the \"wigglyness\" of the function. The smaller the length scale, the more "
                 "structure can be learned. If chosen too small, some non-periodic structure might be picked up as well. "
@@ -151,14 +168,13 @@ public:
         DoAdd(_("Signal variance [PER]"), m_pPKSignalVariance,
               _("The width of the periodic error. Should be around the amplitude of the PE curve, but is not a critical parameter. "
                 "Default = 30"));
-        DoAdd(_("Length scale [SE]"), m_pSEKLengthScale,
-              _("The length scale of the large periodic or non-periodic structure in the error. This is essentially a low-pass "
-                "filter and the length scale defines the corner frequency. Default = 10"));
-        DoAdd(_("Signal Variance [SE]"), m_pSEKSignalVariance,
-              _("Signal Variance of the small variations. Default = 1"));
+        DoAdd(_("Length scale [SE]"), m_pSE1KLengthScale,
+              _("The length scale of the large non-periodic structure in the error. This is essentially a high-pass "
+                "filter and the length scale defines the corner frequency. Default = 500"));
+        DoAdd(_("Signal Variance [SE]"), m_pSE1KSignalVariance,
+              _("Signal Variance of the long-term variations. Default = 1"));
         DoAdd(_("Mixing"), m_pMixingParameter,
-              _("The mixing defines how much control signal is generated from the prediction (low-pass component) and how much "
-                "from the current measurement (high-pass component). Default = 0.8"));
+              _("The mixing defines how much control signal is generated from the prediction and how much. Default = 0.5"));
 
         DoAdd(_("Optimize"), m_checkboxOptimization,
               _("Optimize hyperparameters"));
@@ -184,11 +200,13 @@ public:
       assert(hyperparameters.size() == 6);
 
       m_pHyperDiracNoise->SetValue(hyperparameters[0]);
-      m_pPKLengthScale->SetValue(hyperparameters[1]);
-      m_pPKPeriodLength->SetValue(hyperparameters[2]);
-      m_pPKSignalVariance->SetValue(hyperparameters[3]);
-      m_pSEKLengthScale->SetValue(hyperparameters[4]);
-      m_pSEKSignalVariance->SetValue(hyperparameters[5]);
+      m_pSE0KLengthScale->SetValue(hyperparameters[1]);
+      m_pSE0KSignalVariance->SetValue(hyperparameters[2]);
+      m_pPKLengthScale->SetValue(hyperparameters[3]);
+      m_pPKPeriodLength->SetValue(hyperparameters[4]);
+      m_pPKSignalVariance->SetValue(hyperparameters[5]);
+      m_pSE1KLengthScale->SetValue(hyperparameters[6]);
+      m_pSE1KSignalVariance->SetValue(hyperparameters[7]);
 
       m_pMixingParameter->SetValue(m_pGuideAlgorithm->GetMixingParameter());
 
@@ -203,14 +221,16 @@ public:
       m_pGuideAlgorithm->SetNbElementForInference(m_pNbMeasurementMin->GetValue());
       m_pGuideAlgorithm->SetNbPointsBetweenOptimisation(m_pNbPointsOptimisation->GetValue());
 
-      std::vector<double> hyperparameters(6);
+      std::vector<double> hyperparameters(8);
 
       hyperparameters[0] = m_pHyperDiracNoise->GetValue();
-      hyperparameters[1] = m_pPKLengthScale->GetValue();
-      hyperparameters[2] = m_pPKPeriodLength->GetValue();
-      hyperparameters[3] = m_pPKSignalVariance->GetValue();
-      hyperparameters[4] = m_pSEKLengthScale->GetValue();
-      hyperparameters[5] = m_pSEKSignalVariance->GetValue();
+      hyperparameters[1] = m_pSE0KLengthScale->GetValue();
+      hyperparameters[2] = m_pSE0KSignalVariance->GetValue();
+      hyperparameters[3] = m_pPKLengthScale->GetValue();
+      hyperparameters[4] = m_pPKPeriodLength->GetValue();
+      hyperparameters[5] = m_pPKSignalVariance->GetValue();
+      hyperparameters[6] = m_pSE1KLengthScale->GetValue();
+      hyperparameters[7] = m_pSE1KSignalVariance->GetValue();
 
       m_pGuideAlgorithm->SetGPHyperparameters(hyperparameters);
       m_pGuideAlgorithm->SetMixingParameter(m_pMixingParameter->GetValue());
@@ -250,7 +270,7 @@ struct GuideGaussianProcess::gp_guide_parameters
     bool optimize_hyperparameters;
     bool optimize_sigma;
 
-    covariance_functions::SquareExponentialPeriodic covariance_function_;
+    covariance_functions::PeriodicSquareExponential2 covariance_function_;
     GP gp_;
 
     gp_guide_parameters() :
@@ -300,18 +320,21 @@ struct GuideGaussianProcess::gp_guide_parameters
 };
 
 
-static const double DefaultControlGain                  = 1.0; // control gain
+static const double DefaultControlGain                  = 0.8; // control gain
 static const int    DefaultNbMinPointsForInference      = 25; // minimal number of points for doing the inference
 
-static const double DefaultGaussianNoiseHyperparameter  = 1.0; // default Gaussian process noise
-static const double DefaultLengthScalePerKer            = 5.0; // length-scale of the periodic kernel
-static const double DefaultPeriodLengthPerKer           = 200; // P_p, period-length of the periodic kernel
-static const double DefaultSignalVariancePerKer         = 1.0; // signal-variance of the periodic kernel
-static const double DefaultLengthScaleSEKer             = 10; // length-scale of the SE-kernel
-static const double DefaultSignalVarianceSEKer          = 1.0; // length-scale of the SE-kernel
+static const double DefaultGaussianNoiseHyperparameter  = 1.0; // default Gaussian measurement noise
 
-static const int    DefaultNbMinPointsForOptimisation   = 50; // minimal number of points for doing the optimization
-static const double DefaultMixing                       = 0.8;
+static const double DefaultLengthScaleSE0Ker             = 5.0; // length-scale of the short-range SE-kernel
+static const double DefaultSignalVarianceSE0Ker          = 1.0; // signal variance of the short-range SE-kernel
+static const double DefaultLengthScalePerKer             = 0.3; // length-scale of the periodic kernel
+static const double DefaultPeriodLengthPerKer            = 400; // P_p, period-length of the periodic kernel
+static const double DefaultSignalVariancePerKer          = 10.0; // signal variance of the periodic kernel
+static const double DefaultLengthScaleSE1Ker             = 500.0; // length-scale of the long-range SE-kernel
+static const double DefaultSignalVarianceSE1Ker          = 1.0; // signal variance of the long range SE-kernel
+
+static const int    DefaultNbMinPointsForOptimisation   = 100; // minimal number of points for doing the period identification
+static const double DefaultMixing                       = 0.5; // amount of GP prediction to blend in
 
 // by default optimization turned off
 static const bool   DefaultOptimize                     = false;
@@ -336,13 +359,15 @@ GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
     double mixing_parameter = pConfig->Profile.GetDouble(configPath + "/gp_mixing_parameter", DefaultMixing);
     SetMixingParameter(mixing_parameter);
 
-    std::vector<double> v_hyperparameters(6);
-    v_hyperparameters[0] = pConfig->Profile.GetDouble(configPath + "/gp_gaussian_noise",        DefaultGaussianNoiseHyperparameter);
-    v_hyperparameters[1] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_per_kern", DefaultLengthScalePerKer);
-    v_hyperparameters[2] = pConfig->Profile.GetDouble(configPath + "/gp_period_per_kern",       DefaultPeriodLengthPerKer);
-    v_hyperparameters[3] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_per_kern",       DefaultSignalVariancePerKer);
-    v_hyperparameters[4] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_se_kern",  DefaultLengthScaleSEKer);
-    v_hyperparameters[5] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_se_kern",        DefaultSignalVarianceSEKer);
+    std::vector<double> v_hyperparameters(8);
+    v_hyperparameters[0] = pConfig->Profile.GetDouble(configPath + "/gp_gaussian_noise",         DefaultGaussianNoiseHyperparameter);
+    v_hyperparameters[1] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_se0_kern",  DefaultLengthScaleSE0Ker);
+    v_hyperparameters[2] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_se0_kern",        DefaultSignalVarianceSE0Ker);
+    v_hyperparameters[3] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_per_kern",  DefaultLengthScalePerKer);
+    v_hyperparameters[4] = pConfig->Profile.GetDouble(configPath + "/gp_period_per_kern",        DefaultPeriodLengthPerKer);
+    v_hyperparameters[5] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_per_kern",        DefaultSignalVariancePerKer);
+    v_hyperparameters[6] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_se1_kern",  DefaultLengthScaleSE1Ker);
+    v_hyperparameters[7] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_se1_kern",        DefaultSignalVarianceSE1Ker);
 
     SetGPHyperparameters(v_hyperparameters);
 
@@ -352,10 +377,9 @@ GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
     bool optimize_sigma = pConfig->Profile.GetBoolean(configPath + "/gp_optimize_sigma", DefaultOptimizeNoise);
     SetBoolOptimizeSigma(optimize_sigma);
 
-
     // set masking, so that we only optimize the period length. The rest is fixed or estimated otherwise.
-    Eigen::VectorXi mask(6);
-    mask << 0, 0, 1, 0, 0, 0;
+    Eigen::VectorXi mask(8);
+    mask << 0, 0, 1, 0, 0, 0, 0, 0;
     parameters->gp_.setOptimizationMask(mask);
 
     // set a strong logistic prior (soft box) to prevent the period length from being too small.
@@ -465,7 +489,7 @@ bool GuideGaussianProcess::SetNbPointsBetweenOptimisation(int nb_points)
 
 bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyperparameters)
 {
-    if(hyperparameters.size() != 6)
+    if(hyperparameters.size() != 8)
         return false;
 
     Eigen::VectorXd hyperparameters_eig = Eigen::VectorXd::Map(&hyperparameters[0], hyperparameters.size());
@@ -490,11 +514,44 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
 
     pConfig->Profile.SetDouble(GetConfigPath() + "/gp_gaussian_noise", hyperparameters_eig(0));
 
+    // length scale short SE kernel
+    try
+    {
+      if (hyperparameters_eig(1) < 0)
+      {
+        throw ERROR_INFO("invalid length scale for short SE kernel");
+      }
+    }
+    catch (wxString Msg)
+    {
+      POSSIBLY_UNUSED(Msg);
+      error = true;
+      hyperparameters_eig(1) = DefaultLengthScaleSE0Ker;
+    }
+
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_length_scale_se0_kern", hyperparameters_eig(1));
+
+    // signal variance short SE kernel
+    try
+    {
+      if (hyperparameters_eig(2) < 0)
+      {
+        throw ERROR_INFO("invalid signal variance for the short SE kernel");
+      }
+    }
+    catch (wxString Msg)
+    {
+      POSSIBLY_UNUSED(Msg);
+      error = true;
+      hyperparameters_eig(2) = DefaultSignalVarianceSE0Ker;
+    }
+
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_sigvar_se0_kern", hyperparameters_eig(2));
 
     // length scale periodic kernel
     try
     {
-        if (hyperparameters_eig(1) < 0)
+        if (hyperparameters_eig(3) < 0)
         {
             throw ERROR_INFO("invalid length scale for periodic kernel");
         }
@@ -503,16 +560,16 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        hyperparameters_eig(1) = DefaultLengthScalePerKer;
+        hyperparameters_eig(3) = DefaultLengthScalePerKer;
     }
 
-    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_length_scale_per_kern", hyperparameters_eig(1));
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_length_scale_per_kern", hyperparameters_eig(3));
 
 
     // period length periodic kernel
     try
     {
-        if (hyperparameters_eig(2) < 0)
+        if (hyperparameters_eig(4) < 0)
         {
             throw ERROR_INFO("invalid period length for periodic kernel");
         }
@@ -521,16 +578,16 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        hyperparameters_eig(2) = DefaultPeriodLengthPerKer;
+        hyperparameters_eig(4) = DefaultPeriodLengthPerKer;
     }
 
-    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_period_per_kern", hyperparameters_eig(2));
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_period_per_kern", hyperparameters_eig(4));
 
 
     // signal variance periodic kernel
     try
     {
-        if (hyperparameters_eig(3) < 0)
+        if (hyperparameters_eig(5) < 0)
         {
             throw ERROR_INFO("invalid signal variance for the periodic kernel");
         }
@@ -539,16 +596,16 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        hyperparameters_eig(3) = DefaultSignalVariancePerKer;
+        hyperparameters_eig(5) = DefaultSignalVariancePerKer;
     }
 
-    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_sigvar_per_kern", hyperparameters_eig(3));
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_sigvar_per_kern", hyperparameters_eig(5));
 
 
-    // length scale SE kernel
+    // length scale long SE kernel
     try
     {
-        if (hyperparameters_eig(4) < 0)
+        if (hyperparameters_eig(6) < 0)
         {
             throw ERROR_INFO("invalid length scale for SE kernel");
         }
@@ -557,15 +614,15 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        hyperparameters_eig(4) = DefaultLengthScaleSEKer;
+        hyperparameters_eig(6) = DefaultLengthScaleSE1Ker;
     }
 
-    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_length_scale_se_kern", hyperparameters_eig(4));
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_length_scale_se1_kern", hyperparameters_eig(6));
 
     // signal variance SE kernel
     try
     {
-        if (hyperparameters_eig(5) < 0)
+        if (hyperparameters_eig(7) < 0)
         {
             throw ERROR_INFO("invalid signal variance for the SE kernel");
         }
@@ -574,8 +631,10 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        hyperparameters_eig(5) = DefaultSignalVarianceSEKer;
+        hyperparameters_eig(7) = DefaultSignalVarianceSE1Ker;
     }
+
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_sigvar_se1_kern", hyperparameters_eig(7));
 
     // note that the GP class works in log space! Thus, we have to convert the parameters to log.
     parameters->gp_.setHyperParameters(hyperparameters_eig.array().log());
@@ -645,7 +704,7 @@ std::vector<double> GuideGaussianProcess::GetGPHyperparameters() const
 
     // we need to map the Eigen::vector into a std::vector.
     return std::vector<double>(hyperparameters.data(), // the first element is at the array address
-                               hyperparameters.data() + 6); // 7 parameters, therefore the last is at position 5
+                               hyperparameters.data() + 7); // 8 parameters, therefore the last is at position 7
 }
 
 double GuideGaussianProcess::GetMixingParameter() const
@@ -669,11 +728,13 @@ wxString GuideGaussianProcess::GetSettingsSummary()
       "Control Gain = %.3f\n"
       "Hyperparameters\n"
       "\tGP noise = %.3f\n"
-      "\tLength scale periodic kern = %.3f\n"
-      "\tPeriod Length periodic kern = %.3f\n"
-      "\tSignal variance periodic kern = %.3f\n"
-      "\tLength scale SE kern = %.3f\n"
-      "\tSignal variance SE kern = %.3f\n"
+      "\tLength scale short SE kernel = %.3f\n"
+      "\tSignal variance short SE kernel = %.3f\n"
+      "\tLength scale periodic kernel = %.3f\n"
+      "\tPeriod Length periodic kernel = %.3f\n"
+      "\tSignal variance periodic kernel = %.3f\n"
+      "\tLength scale long SE kernel = %.3f\n"
+      "\tSignal variance long SE kernel = %.3f\n"
       "Optimisation called every = %.3d points\n"
       "Mixing parameter = %.3d\n"
     ;
@@ -686,6 +747,7 @@ wxString GuideGaussianProcess::GetSettingsSummary()
       hyperparameters(0), hyperparameters(1),
       hyperparameters(2), hyperparameters(3),
       hyperparameters(4), hyperparameters(5),
+      hyperparameters(6), hyperparameters(7),
       parameters->min_points_for_optimisation,
       parameters->mixing_parameter_);
 }
