@@ -113,12 +113,24 @@ void SquareExponentialPeriodic::setParameters(const Eigen::VectorXd& params) {
     this->hyperParameters = params;
 }
 
+void SquareExponentialPeriodic::setExtraParameters(const Eigen::VectorXd& params) {
+  this->extraParameters = params;
+}
+
 const Eigen::VectorXd& SquareExponentialPeriodic::getParameters() const {
     return this->hyperParameters;
 }
 
+const Eigen::VectorXd& SquareExponentialPeriodic::getExtraParameters() const {
+  return this->extraParameters;
+}
+
 int SquareExponentialPeriodic::getParameterCount() const {
     return this->hyperParameters.rows();
+}
+
+int SquareExponentialPeriodic::getExtraParameterCount() const {
+  return this->extraParameters.rows();
 }
 
 /* PeriodicSquareExponential */
@@ -174,20 +186,32 @@ void PeriodicSquareExponential::setParameters(const Eigen::VectorXd& params) {
   this->hyperParameters = params;
 }
 
+void PeriodicSquareExponential::setExtraParameters(const Eigen::VectorXd& params) {
+  this->extraParameters = params;
+}
+
 const Eigen::VectorXd& PeriodicSquareExponential::getParameters() const {
   return this->hyperParameters;
+}
+
+const Eigen::VectorXd& PeriodicSquareExponential::getExtraParameters() const {
+  return this->extraParameters;
 }
 
 int PeriodicSquareExponential::getParameterCount() const {
   return this->hyperParameters.rows();
 }
 
+int PeriodicSquareExponential::getExtraParameterCount() const {
+  return this->extraParameters.rows();
+}
+
 /* PeriodicSquareExponential2 */
 PeriodicSquareExponential2::PeriodicSquareExponential2() :
-hyperParameters(Eigen::VectorXd::Zero(6)), periodLength(std::numeric_limits<double>::max()) { }
+hyperParameters(Eigen::VectorXd::Zero(6)), extraParameters(Eigen::VectorXd::Ones(1)*std::numeric_limits<double>::max()) { }
 
 PeriodicSquareExponential2::PeriodicSquareExponential2(const Eigen::VectorXd &hyperParameters_) :
-hyperParameters(hyperParameters_), periodLength(std::numeric_limits<double>::max()) { }
+hyperParameters(hyperParameters_), extraParameters(Eigen::VectorXd::Ones(1)*std::numeric_limits<double>::max()) { }
 
 MatrixStdVecPair PeriodicSquareExponential2::evaluate(
     const Eigen::VectorXd& x,
@@ -200,7 +224,7 @@ MatrixStdVecPair PeriodicSquareExponential2::evaluate(
     double lsSE1 = exp(hyperParameters(4));
     double svSE1 = exp(2 * hyperParameters(5));
 
-    double plP  = exp(periodLength);
+    double plP  = exp(extraParameters(0));
 
     // Work with arrays internally, convert to matrix for return value.
     // This is because all the operations act elementwise.
@@ -244,22 +268,25 @@ void PeriodicSquareExponential2::setParameters(const Eigen::VectorXd& params) {
     this->hyperParameters = params;
 }
 
-void PeriodicSquareExponential2::setPeriodLength(const double periodLength)
+void PeriodicSquareExponential2::setExtraParameters(const Eigen::VectorXd& params)
 {
-    this->periodLength = periodLength;
+    this->extraParameters = params;
 }
 
 const Eigen::VectorXd& PeriodicSquareExponential2::getParameters() const {
     return this->hyperParameters;
 }
 
-const double PeriodicSquareExponential2::getPeriodLength() const
-{
-    return this->periodLength;
+const Eigen::VectorXd& PeriodicSquareExponential2::getExtraParameters() const {
+  return this->extraParameters;
 }
 
 int PeriodicSquareExponential2::getParameterCount() const {
     return this->hyperParameters.rows();
+}
+
+int PeriodicSquareExponential2::getExtraParameterCount() const {
+  return this->extraParameters.rows();
 }
 
 DiracDelta::DiracDelta(const Eigen::VectorXd& hyperParameters) {
@@ -290,12 +317,24 @@ void DiracDelta::setParameters(const Eigen::VectorXd& params) {
   this->hyperParameters = params;
 }
 
+void DiracDelta::setExtraParameters(const Eigen::VectorXd& params) {
+  this->extraParameters = params;
+}
+
 const Eigen::VectorXd& DiracDelta::getParameters() const {
   return this->hyperParameters;
 }
 
+const Eigen::VectorXd& DiracDelta::getExtraParameters() const {
+  return this->extraParameters;
+}
+
 int DiracDelta::getParameterCount() const {
   return this->hyperParameters.rows();
+}
+
+int DiracDelta::getExtraParameterCount() const {
+  return this->extraParameters.rows();
 }
 
 }  // namespace covariance_functions

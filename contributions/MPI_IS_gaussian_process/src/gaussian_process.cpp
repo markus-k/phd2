@@ -304,18 +304,19 @@ Eigen::VectorXd GP::neg_log_likelihood_gradient() const {
 }
 
 void GP::setHyperParameters(const Eigen::VectorXd& hyperParameters) {
-  assert(hyperParameters.rows() == covFunc_->getParameterCount() + 1 &&
+  assert(hyperParameters.rows() == covFunc_->getParameterCount() + covFunc_->getExtraParameterCount() + 1 &&
          "Wrong number of hyperparameters supplied to setHyperParameters()!");
   log_noise_sd_ = hyperParameters[0];
-  covFunc_->setParameters(hyperParameters.tail(hyperParameters.rows()-1));
+  covFunc_->setParameters(hyperParameters.segment(1,covFunc_->getParameterCount()));
+  covFunc_->setExtraParameters(hyperParameters.tail(covFunc_->getExtraParameterCount()));
   if(data_loc_.rows() > 0) {
     infer();
   }
 }
 
 Eigen::VectorXd GP::getHyperParameters() const {
-  Eigen::VectorXd hyperParameters(covFunc_->getParameterCount() + 1);
-  hyperParameters << log_noise_sd_, covFunc_->getParameters();
+  Eigen::VectorXd hyperParameters(covFunc_->getParameterCount() + covFunc_->getExtraParameterCount() + 1);
+  hyperParameters << log_noise_sd_, covFunc_->getParameters(), covFunc_->getExtraParameters();
   return hyperParameters;
 }
 

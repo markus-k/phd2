@@ -115,12 +115,15 @@ public:
 
   //! Method to set the hyper-parameters.
   virtual void setParameters(const Eigen::VectorXd& params) = 0;
+  virtual void setExtraParameters(const Eigen::VectorXd& params) = 0;
 
   //! Returns the hyper-parameters.
   virtual const Eigen::VectorXd& getParameters() const = 0;
+  virtual const Eigen::VectorXd& getExtraParameters() const = 0;
 
   //! Returns the number of hyper-parameters.
   virtual int getParameterCount() const = 0;
+  virtual int getExtraParameterCount() const = 0;
 
   //! Produces a clone to be able to copy the object.
   virtual CovFunc* clone() const = 0;
@@ -131,6 +134,7 @@ public:
 class SquareExponentialPeriodic : public CovFunc {
 private:
     Eigen::VectorXd hyperParameters;
+    Eigen::VectorXd extraParameters;
 
 public:
     SquareExponentialPeriodic();
@@ -142,12 +146,15 @@ public:
 
     //! Method to set the hyper-parameters.
     void setParameters(const Eigen::VectorXd& params);
+    void setExtraParameters(const Eigen::VectorXd& params);
 
     //! Returns the hyper-parameters.
     const Eigen::VectorXd& getParameters() const;
+    const Eigen::VectorXd& getExtraParameters() const;
 
     //! Returns the number of hyper-parameters.
     int getParameterCount() const;
+    int getExtraParameterCount() const;
 
     /**
      * Produces a clone to be able to copy the object.
@@ -200,6 +207,7 @@ public:
 class PeriodicSquareExponential : public CovFunc {
 private:
   Eigen::VectorXd hyperParameters;
+  Eigen::VectorXd extraParameters;
 
 public:
   PeriodicSquareExponential();
@@ -212,12 +220,15 @@ public:
 
   //! Method to set the hyper-parameters.
   void setParameters(const Eigen::VectorXd& params);
+  void setExtraParameters(const Eigen::VectorXd& params);
 
   //! Returns the hyper-parameters.
   const Eigen::VectorXd& getParameters() const;
+  const Eigen::VectorXd& getExtraParameters() const;
 
   //! Returns the number of hyper-parameters.
   int getParameterCount() const;
+  int getExtraParameterCount() const;
 
   /**
    * Produces a clone to be able to copy the object.
@@ -232,7 +243,7 @@ public:
 class PeriodicSquareExponential2 : public CovFunc {
 private:
     Eigen::VectorXd hyperParameters;
-    double periodLength; // this parameter is isolated for easier optimization
+    Eigen::VectorXd extraParameters;
 
 public:
     PeriodicSquareExponential2();
@@ -244,14 +255,15 @@ public:
 
     //! Method to set the hyper-parameters.
     void setParameters(const Eigen::VectorXd& params);
-    void setPeriodLength(const double periodLength);
+    void setExtraParameters(const Eigen::VectorXd& params);
 
     //! Returns the hyper-parameters.
     const Eigen::VectorXd& getParameters() const;
-    const double getPeriodLength() const;
+    const Eigen::VectorXd& getExtraParameters() const;
 
     //! Returns the number of hyper-parameters.
     int getParameterCount() const;
+    int getExtraParameterCount() const;
 
     /**
      * Produces a clone to be able to copy the object.
@@ -269,6 +281,7 @@ public:
 class DiracDelta : public CovFunc {
 private:
   Eigen::VectorXd hyperParameters;
+  Eigen::VectorXd extraParameters;
 
 public:
   explicit DiracDelta(const Eigen::VectorXd& hyperParameters);
@@ -290,16 +303,19 @@ public:
    * Method to set the hyper-parameters.
    */
   void setParameters(const Eigen::VectorXd& params);
+  void setExtraParameters(const Eigen::VectorXd& params);
 
   /**
    * Returns the hyper-parameters.
    */
   const Eigen::VectorXd& getParameters() const;
+  const Eigen::VectorXd& getExtraParameters() const;
 
   /**
    * Returns the number of hyper-parameters.
    */
   int getParameterCount() const;
+  int getExtraParameterCount() const;
 
   /**
    * Produces a clone to be able to copy the object.
