@@ -38,6 +38,7 @@
 #include "math_tools.h"
 #include <Eigen/Dense>
 #include <Eigen/Core>
+#include <unsupported/Eigen/FFT>
 #include <stdexcept>
 #include <cmath>
 #include <cstdint>
@@ -255,7 +256,15 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> compute_spectrum(Eigen::VectorXd &da
   Eigen::VectorXd padded_data = Eigen::VectorXd::Zero(N);
   padded_data.head(N_data) = data;
 
-  Eigen::VectorXcd result = ditfft2(padded_data, N, 1);
+  Eigen::FFT<double> fft;
+
+  std::vector<double> vec_data(padded_data.data(), padded_data.data() + padded_data.rows() * padded_data.cols());
+  std::vector<std::complex<double>> vec_result;
+  fft.fwd(vec_result, vec_data);
+
+  Eigen::VectorXcd result = Eigen::Map<Eigen::VectorXcd>(&vec_result[0], vec_result.size());
+
+//   Eigen::VectorXcd result = ditfft2(padded_data, N, 1);
 
   int low_index = std::ceil(static_cast<double>(N)/static_cast<double>(N_data));
 
