@@ -69,7 +69,7 @@ int main(int argc, char **argv)
   std::pair<Eigen::VectorXd, Eigen::VectorXd> result = math_tools::compute_spectrum(Yw, N_fft);
   clock_t end = std::clock();
   double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-  std::cout << "elapsed time: " << elapsed_secs << " s." << std::endl;
+  std::cout << "time for FFT: " << elapsed_secs << " s." << std::endl;
 
 
   Eigen::VectorXd amplitudes = result.first;
@@ -154,10 +154,10 @@ int main(int argc, char **argv)
   }
   meas += ra_raw_dist;
 
-  Eigen::VectorXd hyper_parameters(4);
-  hyper_parameters << 1, 500, 1, 15000000;
+  Eigen::VectorXd hyper_parameters(7);
+  hyper_parameters << 10, 1, 0.5, 500, 10, 500, 1;
 
-  covariance_functions::PeriodicSquareExponential covariance_function(hyper_parameters.array().log());
+  covariance_functions::PeriodicSquareExponential2 covariance_function(hyper_parameters.array().log());
   GP gp(1e0, covariance_function);
 
   gp.enableExplicitTrend();
