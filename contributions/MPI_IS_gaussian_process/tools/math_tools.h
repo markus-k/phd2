@@ -43,6 +43,7 @@
 #define MINIMAL_THETA 1e-7
 
 #include <Eigen/Dense>
+#include <unsupported/Eigen/FFT>
 #include <limits>
 #include <vector>
 #include <stdexcept>
@@ -77,22 +78,6 @@ Eigen::MatrixXd squareDistance(
  */
 Eigen::MatrixXd squareDistance(const Eigen::MatrixXd& a);
 
-Eigen::MatrixXd generate_random_sequence(int d, int n);
-Eigen::MatrixXd generate_random_sequence(
-    int n,
-    Eigen::VectorXd x,
-    Eigen::VectorXd t);
-
-/*!
- * function M = exp_map (mu, E)
- * % Computes exponential map on a sphere
- * %
- * % many thanks to Soren Hauberg!
- * %
- * % Philipp Hennig, September 2012
- */
-Eigen::MatrixXd exp_map(const Eigen::VectorXd& mu, const Eigen::MatrixXd& E);
-
 Eigen::MatrixXd generate_uniform_random_matrix_0_1(
     const size_t n,
     const size_t m);
@@ -106,13 +91,6 @@ Eigen::MatrixXd box_muller(const Eigen::VectorXd &vRand);
 Eigen::MatrixXd generate_normal_random_matrix(
     const size_t n,
     const size_t m);
-
-
-//! Returns a single random double drawn from the standard normal distribution
-double generate_normal_random_double();
-
-//! Returns a single random double drawn from the uniform distribution
-double generate_uniform_random_double();
 
 /*!
  * Checks if a value is NaN by comparing it with itself.
@@ -149,14 +127,6 @@ inline bool isInf(double x) {
  * - A list of frequencies is generated.
  */
 std::pair< Eigen::VectorXd, Eigen::VectorXd > compute_spectrum(Eigen::VectorXd& data, int N = 0);
-
-/*!
- * Calculates the complex DFT with the FFT algorithm.
- *
- * Implemented according to:
- * https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm
- */
-Eigen::VectorXcd ditfft2(Eigen::VectorXd data, int N, int S);
 
 /*!
  * Computes a Hamming window (used to reduce spectral leakage of subsequent DFT).

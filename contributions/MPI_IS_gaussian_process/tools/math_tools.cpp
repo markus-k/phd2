@@ -33,18 +33,12 @@
  * Edgar Klenske <edgar.klenske@tuebingen.mpg.de>
  */
 
-
-
 #include "math_tools.h"
-#include <Eigen/Dense>
-#include <Eigen/Core>
-#include <unsupported/Eigen/FFT>
 #include <stdexcept>
 #include <cmath>
 #include <cstdint>
 
 namespace math_tools {
-
 
 Eigen::MatrixXd squareDistance(const Eigen::MatrixXd& a,
                                const Eigen::MatrixXd& b) {
@@ -96,89 +90,6 @@ Eigen::MatrixXd squareDistance(const Eigen::MatrixXd& a,
 
 Eigen::MatrixXd squareDistance(const Eigen::MatrixXd& a) {
   return squareDistance(a, a);
-}
-
-Eigen::MatrixXd generate_random_sequence(int d, int n) {
-  // x = randn(d,1); % starting sample
-  Eigen::VectorXd x = math_tools::generate_normal_random_matrix(d, 1);
-
-  Eigen::VectorXd t = math_tools::generate_normal_random_matrix(d, 1);
-
-  return generate_random_sequence(n, x, t);
-}
-
-Eigen::MatrixXd generate_random_sequence(int n, Eigen::VectorXd x,
-    Eigen::VectorXd t) {
-// function X = GPanimation(d,n)
-// % returns a matrix X of size [d,n], representing a grand circle on the
-// % unit d-sphere in n steps, starting at a random location. Given a kernel
-// % matrix K, this can be turned into a tour through the sample space, simply
-// % by calling chol(K)’ * X;
-// %
-// % Philipp Hennig, September 2012
-
-
-// r = sqrt(sum(x.^2));
-  double r = std::sqrt(x.transpose() * x);
-
-// x = x ./ r; % project onto sphere
-  x = x / r;
-
-// t = randn(d,1); % sample tangent direction
-
-// t = t - (t'*x) * x; % orthogonalise by Gram-Schmidt.
-  double tmp = t.adjoint() * x;
-  t = t - tmp * x;
-
-// t = t ./ sqrt(sum(t.^2)); % standardise
-  t = t / std::sqrt(t.transpose() * t);
-
-// s = linspace(0,2*pi,n+1); s = s(1:end-1); % space to span
-  Eigen::VectorXd s(n + 1);
-  s.setLinSpaced(n + 1, 0, 2 * M_PI);
-  s.conservativeResize(s.rows() - 1);
-
-// t = bsxfun(@times,s,t); % span linspace in direction of t
-//     std::cout << (s.transpose().replicate(t.rows(),1)).format(OctaveFmt) <<
-// std::endl;
-//     std::cout << (t.replicate(1,s.rows())).format(OctaveFmt) <<
-// std::endl;
-
-  Eigen::MatrixXd T = s.transpose().replicate(t.rows(), 1)
-                      .cwiseProduct(t.replicate(1, s.rows()));
-
-// X = r.* exp_map(x,t); % project onto sphere, re-scale
-  Eigen::MatrixXd X = r * exp_map(x, T);
-// end
-  return X;
-}
-
-Eigen::MatrixXd exp_map(const Eigen::VectorXd& mu, const Eigen::MatrixXd& E) {
-// D = size(E,1);
-  int D = E.rows();
-
-// theta = sqrt(sum((E.^2)));
-  Eigen::MatrixXd theta = E.array().pow(2).colwise().sum().sqrt();
-
-// M = mu * cos(theta) + E .* repmat(sin(theta)./theta, D, 1);
-  Eigen::MatrixXd M = mu * theta.array().cos().matrix() +
-                      E.cwiseProduct(
-                        (theta.array().sin() / theta.array())
-                        .matrix().replicate(D, 1));
-
-// if (any (abs (theta) <= 1e-7))
-// for a = find (abs (theta) <= 1e-7)
-// M (:, a) = mu;
-// end % for
-// end % if
-  for (int i = 0; i < theta.cols(); i++) {
-    if (theta(0, i) < MINIMAL_THETA) {
-      M.col(i) = mu;
-    }
-  }
-
-// end % function
-  return M;
 }
 
 Eigen::MatrixXd generate_uniform_random_matrix_0_1(
@@ -234,16 +145,6 @@ Eigen::MatrixXd generate_normal_random_matrix(
   return result;
 }
 
-double generate_normal_random_double() {
-  Eigen::MatrixXd randomMatrix = generate_normal_random_matrix(1, 1);
-  return randomMatrix(0,0);
-}
-
-double generate_uniform_random_double() {
-  Eigen::MatrixXd randomMatrix = generate_uniform_random_matrix_0_1(1, 1);
-  return randomMatrix(0,0);
-}
-
 std::pair<Eigen::VectorXd, Eigen::VectorXd> compute_spectrum(Eigen::VectorXd &data, int N) {
 
   int N_data = data.rows();
@@ -264,8 +165,6 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> compute_spectrum(Eigen::VectorXd &da
 
   Eigen::VectorXcd result = Eigen::Map<Eigen::VectorXcd>(&vec_result[0], vec_result.size());
 
-//   Eigen::VectorXcd result = ditfft2(padded_data, N, 1);
-
   int low_index = std::ceil(static_cast<double>(N)/static_cast<double>(N_data));
 
   Eigen::VectorXd spectrum = result.segment(low_index,N/2 - low_index + 1).array().abs().pow(2);
@@ -274,36 +173,6 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> compute_spectrum(Eigen::VectorXd &da
   frequencies /= N;
 
   return std::make_pair(spectrum, frequencies);
-}
-
-Eigen::VectorXcd ditfft2(Eigen::VectorXd data, int N, int S) {
-
-  Eigen::VectorXcd result(N);
-
-  if(N==1) {
-    result(0) = data(0);
-  } else {
-    result.head(N/2) = ditfft2(data, N/2, 2*S);
-    result.tail(N/2) = ditfft2(data.segment(S,data.rows()-S), N/2, 2*S);
-    for(int k=0; k<N/2; ++k) {
-      std::complex<double> t = result(k);
-      std::complex<double> i(0, 1);
-      std::complex<double> twid = std::exp(-2*M_PI*i*static_cast<double>(k)/static_cast<double>(N));
-      result(k) = t + twid*result(k+N/2);
-      result(k+N/2) = t - twid*result(k+N/2);
-    }
-  }
-
-//   std::complex<double> i(0, 1);
-//   for(int k=0; k<N; ++k) {
-//     std::complex<double> Xk(0, 0);
-//     for(int n=0; n<N; ++n) {
-//       Xk += data(n)*std::exp(-2*M_PI*i*static_cast<double>(k)*static_cast<double>(n)/static_cast<double>(N));
-//     }
-//     result(k) = Xk;
-//   }
-
-  return result;
 }
 
 Eigen::VectorXd hamming_window(int N) {

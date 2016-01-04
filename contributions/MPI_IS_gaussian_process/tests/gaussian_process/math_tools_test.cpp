@@ -35,62 +35,8 @@
  *
  */
 
-
 #include <gtest/gtest.h>
 #include "../tools/math_tools.h"
-
-TEST(MathToolsTest, ExponentialMapTest) {
-  Eigen::VectorXd mu(Eigen::VectorXd(3));
-  Eigen::MatrixXd E(Eigen::MatrixXd(3, 4));
-  Eigen::MatrixXd em(Eigen::MatrixXd(3, 4));
-
-  mu << 1 , 2 , 3;
-
-  E << 1, 2, 3, 4
-    , 5, 6, 7, 8
-    , 9, 10, 11, 12;
-
-
-  em <<
-
-     -0.683247804572918,        0.629108629632239,
-     0.850354451463765,
-     -0.557094497525197,
-     -1.59711413203301,         1.14496630545333,
-     1.75498451816802,
-     -1.11418899505039,
-     -2.51098045949311,          1.66082398127441,
-     2.65961458487227,
-     -1.67128349257559;
-
-
-  auto result = math_tools::exp_map(mu, E);
-
-  for (int col = 0; col < result.cols(); col++) {
-    for (int row = 0; row < result.rows(); row++) {
-      EXPECT_NEAR(em(row, col), result(row, col), 0.003);
-    }
-  }
-}
-
-TEST(MathToolsTest, RandomAnimationTest) {
-  Eigen::MatrixXd ra(Eigen::MatrixXd(3, 4));
-  Eigen::VectorXd x(3), t(3);
-  x << 1, 2, 3;
-  t << 4, 5, 6;
-  ra <<
-     1, 3.2659863237109,   -1, -3.26598632371091,
-        2, 0.816496580927725, -2, -0.816496580927727,
-        3, -1.63299316185545, -3, 1.63299316185545;
-
-  auto result = math_tools::generate_random_sequence(4, x, t);
-
-  for (int col = 0; col < result.cols(); col++) {
-    for (int row = 0; row < result.rows(); row++) {
-      EXPECT_NEAR(ra(row, col), result(row, col), 0.003);
-    }
-  }
-}
 
 TEST(MathToolsTest, BoxMullerTest) {
   Eigen::VectorXd vRand(10);
@@ -132,7 +78,6 @@ TEST(MathToolsTest, BoxMullerMeanTest) {
 
   EXPECT_NEAR(mean, 0, 0.005);
 }
-
 
 TEST(MathToolsTest, RandnMeanTest) {
   size_t N = 200000;
@@ -185,8 +130,11 @@ TEST(MathToolsTest, FFTTest) {
   expected_result_real << 5, 0, -1, 0, -3, 0, -1, 0;
   expected_result_imag << 0, 1, 0, -1, 0, 1, 0, -1;
 
-  Eigen::VectorXcd result(8);
-  result = math_tools::ditfft2(y, 8, 1);
+  Eigen::FFT<double> fft;
+  std::vector<double> vec_data(y.data(), y.data() + y.rows() * y.cols());
+  std::vector<std::complex<double>> vec_result;
+  fft.fwd(vec_result, vec_data);
+  Eigen::VectorXcd result = Eigen::Map<Eigen::VectorXcd>(&vec_result[0], vec_result.size());
 
   Eigen::VectorXd result_real(8), result_imag(8);
 
