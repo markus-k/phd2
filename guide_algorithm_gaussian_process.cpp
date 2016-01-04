@@ -321,10 +321,10 @@ struct GuideGaussianProcess::gp_guide_parameters
 };
 
 
-static const double DefaultControlGain                  = 0.8; // control gain
-static const int    DefaultNbMinPointsForInference      = 25; // minimal number of points for doing the inference
+static const double DefaultControlGain                   = 0.8; // control gain
+static const int    DefaultNbMinPointsForInference       = 25; // minimal number of points for doing the inference
 
-static const double DefaultGaussianNoiseHyperparameter  = 1.0; // default Gaussian measurement noise
+static const double DefaultGaussianNoiseHyperparameter   = 1.0; // default Gaussian measurement noise
 
 static const double DefaultLengthScaleSE0Ker             = 5.0; // length-scale of the short-range SE-kernel
 static const double DefaultSignalVarianceSE0Ker          = 1.0; // signal variance of the short-range SE-kernel
@@ -334,12 +334,12 @@ static const double DefaultSignalVariancePerKer          = 10.0; // signal varia
 static const double DefaultLengthScaleSE1Ker             = 500.0; // length-scale of the long-range SE-kernel
 static const double DefaultSignalVarianceSE1Ker          = 1.0; // signal variance of the long range SE-kernel
 
-static const int    DefaultNbMinPointsForOptimisation   = 100; // minimal number of points for doing the period identification
-static const double DefaultMixing                       = 0.5; // amount of GP prediction to blend in
+static const int    DefaultNbMinPointsForOptimisation    = 100; // minimal number of points for doing the period identification
+static const double DefaultMixing                        = 0.5; // amount of GP prediction to blend in
 
 // by default optimization turned off
-static const bool   DefaultOptimize                     = false;
-static const bool   DefaultOptimizeNoise                = false;
+static const bool   DefaultOptimize                      = false;
+static const bool   DefaultOptimizeNoise                 = false;
 
 GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
     : GuideAlgorithm(pMount, axis),
@@ -897,53 +897,19 @@ double GuideGaussianProcess::result(double input)
         parameters->control_signal_ += parameters->mixing_parameter_*PredictGearError(); // mix in the prediction
     }
 
-// display GP and hyperparameter information, can be removed for production
-#if GP_DEBUG_STATUS_
-    Eigen::VectorXd hypers = parameters->gp_.getHyperParameters();
-
-    wxString msg;
-    msg = wxString::Format(_("displacement: %5.2f px, prediction: %.2f px, %.2f, %.2f, %.2f, %.2f, %.2f"),
-        input, prediction_,
-        std::exp(hypers(0)), std::exp(hypers(1)), std::exp(hypers(2)), std::exp(hypers(3)), std::exp(hypers(4)));
-
-    pFrame->SetStatusText(msg, 1);
-#endif
-
     parameters->add_one_point(); // add new point here, since the control is for the next point in time
     HandleControls(parameters->control_signal_);
 
+    // optimize the hyperparameters if we have enough points already
+    if (parameters->min_points_for_optimisation > 0
+        && parameters->get_number_of_measurements() > parameters->min_points_for_optimisation)
+    {
+        // performing the optimisation
+        // TODO: implement Newton optimization in the GP framework
+    }
 
-//     // optimize the hyperparameters if we have enough points already
-//     if (parameters->min_points_for_optimisation > 0
-//         && parameters->get_number_of_measurements() > parameters->min_points_for_optimisation)
-//     {
-// //         // performing the optimisation
-// //         Eigen::VectorXd optim = parameters->gp_.optimizeHyperParameters(1); // only one linesearch
-// //         parameters->gp_.setHyperParameters(optim);
-//     }
-
-//     // estimate the standard deviation in a simple way (no optimization)
-//     if (parameters->min_points_for_optimisation > 0
-//         && parameters->get_number_of_measurements() > parameters->min_points_for_optimisation)
-//     {    // TODO: implement condition with some checkbox
-//         Eigen::VectorXd gp_parameters = parameters->gp_.getHyperParameters();
-//
-//         int N = parameters->get_number_of_measurements();
-//         Eigen::VectorXd measurements(N);
-//
-//         for(size_t i = 0; i < N; i++)
-//         {
-//             measurements(i) = parameters->circular_buffer_parameters[i].measurement;
-//         }
-//
-//         double mean = measurements.mean();
-//         // Eigen doesn't have var() yet, we have to compute it ourselves
-//         gp_parameters(0) = std::log((measurements.array() - mean).pow(2).mean());
-//         parameters->gp_.setHyperParameters(gp_parameters);
-//     }
-
-// send the GP output to matlab for plotting
-#if GP_DEBUG_MATLAB_
+// write the GP output to a file for easy analyzation
+#if GP_DEBUG_FILE_
     int N = parameters->get_number_of_measurements();
 
     // initialize the different vectors needed for the GP
