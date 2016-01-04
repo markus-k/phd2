@@ -184,10 +184,10 @@ int PeriodicSquareExponential::getParameterCount() const {
 
 /* PeriodicSquareExponential2 */
 PeriodicSquareExponential2::PeriodicSquareExponential2() :
-hyperParameters(Eigen::VectorXd::Zero(7)) { }
+hyperParameters(Eigen::VectorXd::Zero(6)), periodLength(std::numeric_limits<double>::max()) { }
 
 PeriodicSquareExponential2::PeriodicSquareExponential2(const Eigen::VectorXd &hyperParameters_) :
-hyperParameters(hyperParameters_) { }
+hyperParameters(hyperParameters_), periodLength(std::numeric_limits<double>::max()) { }
 
 MatrixStdVecPair PeriodicSquareExponential2::evaluate(
     const Eigen::VectorXd& x,
@@ -196,10 +196,11 @@ MatrixStdVecPair PeriodicSquareExponential2::evaluate(
     double lsSE0 = exp(hyperParameters(0));
     double svSE0 = exp(2 * hyperParameters(1));
     double lsP  = exp(hyperParameters(2));
-    double plP  = exp(hyperParameters(3));
-    double svP  = exp(2 * hyperParameters(4));
-    double lsSE1 = exp(hyperParameters(5));
-    double svSE1 = exp(2 * hyperParameters(6));
+    double svP  = exp(2 * hyperParameters(3));
+    double lsSE1 = exp(hyperParameters(4));
+    double svSE1 = exp(2 * hyperParameters(5));
+
+    double plP  = exp(periodLength);
 
     // Work with arrays internally, convert to matrix for return value.
     // This is because all the operations act elementwise.
@@ -232,10 +233,9 @@ MatrixStdVecPair PeriodicSquareExponential2::evaluate(
     derivatives[0] = K0 * E0;
     derivatives[1] = 2 * K0;
     derivatives[2] = 4 * K1 * Q1;
-    derivatives[3] = 4 / lsP * K1 * S1 * P1.cos() * P1;
-    derivatives[4] = 2 * K1;
-    derivatives[5] = K2 * E2;
-    derivatives[6] = 2 * K2;
+    derivatives[3] = 2 * K1;
+    derivatives[4] = K2 * E2;
+    derivatives[5] = 2 * K2;
 
     return std::make_pair(K, derivatives);
 }
@@ -244,14 +244,23 @@ void PeriodicSquareExponential2::setParameters(const Eigen::VectorXd& params) {
     this->hyperParameters = params;
 }
 
+void PeriodicSquareExponential2::setPeriodLength(const double periodLength)
+{
+    this->periodLength = periodLength;
+}
+
 const Eigen::VectorXd& PeriodicSquareExponential2::getParameters() const {
     return this->hyperParameters;
+}
+
+const double PeriodicSquareExponential2::getPeriodLength() const
+{
+    return this->periodLength;
 }
 
 int PeriodicSquareExponential2::getParameterCount() const {
     return this->hyperParameters.rows();
 }
-
 
 DiracDelta::DiracDelta(const Eigen::VectorXd& hyperParameters) {
   this->hyperParameters = hyperParameters;

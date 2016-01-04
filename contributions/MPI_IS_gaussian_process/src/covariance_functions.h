@@ -232,6 +232,7 @@ public:
 class PeriodicSquareExponential2 : public CovFunc {
 private:
     Eigen::VectorXd hyperParameters;
+    double periodLength; // this parameter is isolated for easier optimization
 
 public:
     PeriodicSquareExponential2();
@@ -243,9 +244,11 @@ public:
 
     //! Method to set the hyper-parameters.
     void setParameters(const Eigen::VectorXd& params);
+    void setPeriodLength(const double periodLength);
 
     //! Returns the hyper-parameters.
     const Eigen::VectorXd& getParameters() const;
+    const double getPeriodLength() const;
 
     //! Returns the number of hyper-parameters.
     int getParameterCount() const;
