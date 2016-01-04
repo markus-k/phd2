@@ -66,7 +66,6 @@ private:
   Eigen::VectorXd alpha_;
   Eigen::LDLT<Eigen::MatrixXd> chol_gram_matrix_;
   double log_noise_sd_;
-  Eigen::VectorXi optimization_mask_;
   std::vector<parameter_priors::ParameterPrior*> prior_vector_;
   bool use_explicit_trend_;
   Eigen::MatrixXd feature_vectors_;
@@ -198,30 +197,6 @@ public:
    * Optimizes the hyperparameters for a certain number of line searches
    */
   Eigen::VectorXd optimizeHyperParameters(int number_of_linesearches) const;
-
-  /*!
-   * Sets the optimization mask to determine which parameters should be
-   * optimized. Think of it as a delta-peak prior.
-   */
-  void setOptimizationMask(const Eigen::VectorXi& mask);
-
-  /*!
-   * Unsets the optimization mask.
-   */
-  void clearOptimizationMask();
-
-  /*!
-   * Uses the stored mask and hyperparameters to create a vector of those
-   * parameters that are not masked.
-   */
-  Eigen::VectorXd mask(const Eigen::VectorXd& original_parameters);
-
-  /*!
-   * Uses the mask and the supplied parameter vector to create a full parameter
-   * vector, where the supplied parameters are inserted at the places according
-   * to the mask.
-   */
-  Eigen::VectorXd unmask(const Eigen::VectorXd& masked_parameters);
 
   /*!
    * Sets a hyperprior for a certain hyperparameter (addressed by the

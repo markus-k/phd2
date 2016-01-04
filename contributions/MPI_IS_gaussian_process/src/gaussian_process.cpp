@@ -56,7 +56,6 @@ GP::GP() : covFunc_(0), // initialize pointer to null
   alpha_(Eigen::VectorXd()),
   chol_gram_matrix_(Eigen::LDLT<Eigen::MatrixXd>()),
   log_noise_sd_(-1E20),
-  optimization_mask_(Eigen::VectorXi()),
   prior_vector_(1, 0),
   use_explicit_trend_(false),
   feature_vectors_(Eigen::MatrixXd()),
@@ -73,7 +72,6 @@ GP::GP(const covariance_functions::CovFunc& covFunc) :
   alpha_(Eigen::VectorXd()),
   chol_gram_matrix_(Eigen::LDLT<Eigen::MatrixXd>()),
   log_noise_sd_(-1E20),
-  optimization_mask_(Eigen::VectorXi()),
   prior_vector_(covFunc.getParameterCount() + 1, 0),
   use_explicit_trend_(false),
   feature_vectors_(Eigen::MatrixXd()),
@@ -91,7 +89,6 @@ GP::GP(const double noise_variance,
   alpha_(Eigen::VectorXd()),
   chol_gram_matrix_(Eigen::LDLT<Eigen::MatrixXd>()),
   log_noise_sd_(std::log(noise_variance)),
-  optimization_mask_(Eigen::VectorXi()),
   prior_vector_(covFunc.getParameterCount() + 1, 0),
   use_explicit_trend_(false),
   feature_vectors_(Eigen::MatrixXd()),
@@ -118,7 +115,6 @@ GP::GP(const GP& that) :
   alpha_(that.alpha_),
   chol_gram_matrix_(that.chol_gram_matrix_),
   log_noise_sd_(that.log_noise_sd_),
-  optimization_mask_(that.optimization_mask_),
   use_explicit_trend_(that.use_explicit_trend_),
   feature_vectors_(that.feature_vectors_),
   feature_matrix_(that.feature_matrix_),
@@ -176,7 +172,6 @@ GP& GP::operator=(const GP& that) {
     alpha_ = that.alpha_;
     chol_gram_matrix_ = that.chol_gram_matrix_;
     log_noise_sd_ = that.log_noise_sd_;
-    optimization_mask_ = that.optimization_mask_;
   }
   return *this;
 }
@@ -354,14 +349,10 @@ double GP::neg_log_posterior() const {
 Eigen::VectorXd GP::neg_log_posterior_gradient() const {
   Eigen::VectorXd result = neg_log_likelihood_gradient();
   Eigen::VectorXd hyperParameters = getHyperParameters();
-  int j = 0; // counter for the mask
   for(size_t i = 0; i < prior_vector_.size(); ++i) {
-    if(optimization_mask_.size() == 0 || optimization_mask_[i] == 1) {
-      if(prior_vector_[i] != 0) {
-        result[j] +=
-            prior_vector_[i]->neg_log_prob_derivative(hyperParameters[i]);
-      }
-      ++j;
+    if(prior_vector_[i] != 0) {
+      result[i] +=
+          prior_vector_[i]->neg_log_prob_derivative(hyperParameters[i]);
     }
   }
   return result;
@@ -380,28 +371,15 @@ double GP::neg_log_likelihood() const {
 }
 
 Eigen::VectorXd GP::neg_log_likelihood_gradient() const {
-  assert((static_cast<size_t>(optimization_mask_.rows()) ==
-          gram_matrix_derivatives_.size() || optimization_mask_.rows() == 0) &&
-          "The supplied mask has to have as many elements as hyperparameters!");
-
   Eigen::VectorXd result;
-  if(optimization_mask_.rows() > 0) {
-    result = Eigen::VectorXd(optimization_mask_.array().sum());
-  } else {
-    result = Eigen::VectorXd(gram_matrix_derivatives_.size());
-  }
+  result = Eigen::VectorXd(gram_matrix_derivatives_.size());
 
   Eigen::MatrixXd beta(gram_matrix_.rows(), gram_matrix_.cols());
-  int j = 0; // separate index, needed to keep track of the mask's element
   // Implmented according to Equation (5.9) in Rasmussen & Williams, 2006
   for(size_t i = 0; i < gram_matrix_derivatives_.size(); ++i) {
-    // if a mask is defined, only calculate derivatives where the mask is 1
-    if(optimization_mask_.rows() == 0 || optimization_mask_[i] == 1) {
-      beta = chol_gram_matrix_.solve(gram_matrix_derivatives_[i]);
-      result[j] = -0.5*(alpha_.transpose()*gram_matrix_derivatives_[i]*alpha_ -
-                        beta.trace());
-      ++j;
-    }
+    beta = chol_gram_matrix_.solve(gram_matrix_derivatives_[i]);
+    result[i] = -0.5*(alpha_.transpose()*gram_matrix_derivatives_[i]*alpha_ -
+                      beta.trace());
   }
   return result;
 }
@@ -445,7 +423,7 @@ public:
                         double* function_value,
                         Eigen::VectorXd* derivative) const
   {
-    gp_->setHyperParameters(gp_->unmask(x));
+    gp_->setHyperParameters(x);
 
     *function_value = gp_->neg_log_posterior();
     *derivative = gp_->neg_log_posterior_gradient();
@@ -463,88 +441,9 @@ Eigen::VectorXd GP::optimizeHyperParameters(int number_of_linesearches) const {
   // optimisation
   bfgs_optimizer::BFGS bfgs(&gpo, number_of_linesearches);
 
-  Eigen::VectorXd result =
-      this_copy.unmask(bfgs.minimize(this_copy.mask(getHyperParameters())));
+  Eigen::VectorXd result = bfgs.minimize(getHyperParameters());
 
-#if 0
-  this_copy.setHyperParameters(result);
-
-
-  int periodicity_index_ = 2; // FIXME!
-  double current_likelihood_value = this_copy.neg_log_posterior();
-  double last_likelihood_value = current_likelihood_value;
-
-  // Trisection for lower values
-  last_likelihood_value = current_likelihood_value;
-  while(last_likelihood_value >= current_likelihood_value - 1E-2) {
-    last_likelihood_value = current_likelihood_value;
-    result(periodicity_index_) -= std::log(3);
-    this_copy.setHyperParameters(result);
-    current_likelihood_value = this_copy.neg_log_likelihood();
-  }
-  // it was too small before, so we multiply by 3 again
-  result(periodicity_index_) += std::log(3);
-
-  // Bisection for lower values
-  last_likelihood_value = current_likelihood_value;
-  while(last_likelihood_value >= current_likelihood_value - 1E-2) {
-    last_likelihood_value = current_likelihood_value;
-    result(periodicity_index_) -= std::log(2);
-    this_copy.setHyperParameters(result);
-    current_likelihood_value = this_copy.neg_log_likelihood();
-  }
-  // it was too small before, so we multiply by 2 again
-  result(periodicity_index_) += std::log(2);
-#endif
   return result;
-}
-
-void GP::setOptimizationMask(const Eigen::VectorXi& mask) {
-  optimization_mask_ = mask;
-}
-
-void GP::clearOptimizationMask() {
-  optimization_mask_ = Eigen::VectorXi();
-}
-
-Eigen::VectorXd GP::mask(const Eigen::VectorXd& original_parameters) {
-  Eigen::VectorXd temp_parameters;
-  if(optimization_mask_.rows() > 0) {
-    temp_parameters = Eigen::VectorXd(optimization_mask_.array().sum());
-  } else {
-    temp_parameters = original_parameters;
-  }
-
-  int j = 0; // separate index to keep track of masked parameters
-  if(optimization_mask_.rows() > 0) {
-    for(int i = 0; i < optimization_mask_.rows(); ++i) {
-      if(optimization_mask_[i] == 1) {
-        temp_parameters[j] = original_parameters[i];
-        ++j;
-      }
-    }
-  }
-  return temp_parameters;
-}
-
-Eigen::VectorXd GP::unmask(const Eigen::VectorXd& masked_parameters) {
-  Eigen::VectorXd original_parameters = getHyperParameters();
-  assert((optimization_mask_.rows() == 0 || optimization_mask_.rows() ==
-      original_parameters.rows()) &&
-      "The supplied mask has to have as many elements as hyperparameters!");
-  Eigen::VectorXd temp_parameters = original_parameters;
-  int j = 0; // separate index to keep track of masked parameters
-  if(optimization_mask_.rows() > 0) {
-    for(int i = 0; i < optimization_mask_.rows(); ++i) {
-      if(optimization_mask_[i] == 1) {
-        temp_parameters[i] = masked_parameters[j];
-        ++j;
-      }
-    }
-  } else {
-    temp_parameters = masked_parameters;
-  }
-  return temp_parameters;
 }
 
 void GP::setHyperPrior(const parameter_priors::ParameterPrior& prior, const
