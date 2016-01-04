@@ -41,6 +41,7 @@
 #include <Eigen/Cholesky>
 #include <cstdint>
 #include <iostream>
+#include <ctime>
 
 #include "gaussian_process.h"
 #include "math_tools.h"
@@ -220,10 +221,16 @@ Eigen::VectorXd GP::drawSample(const Eigen::VectorXd& locations,
 void GP::infer() {
   assert(data_loc_.rows() > 0 && "Error: the GP is not yet initialized!");
 
+  clock_t end, begin = std::clock();
+
   // The data covariance matrix
   covariance_functions::MatrixStdVecPair cov_result =
                                        covFunc_->evaluate(data_loc_, data_loc_);
   Eigen::MatrixXd & data_cov = cov_result.first;
+
+  end = std::clock();
+  std::cout << "time for creating the data cov matrix: " << double(end - begin)/CLOCKS_PER_SEC << std::endl;
+  begin = std::clock();
 
   gram_matrix_derivatives_.resize(cov_result.second.size() + 1);
   for(size_t i = 0; i < cov_result.second.size(); i++)
@@ -239,11 +246,23 @@ void GP::infer() {
   gram_matrix_ += (std::exp(2*log_noise_sd_) + JITTER) *
                             Eigen::MatrixXd::Identity(gram_matrix_.rows(), gram_matrix_.cols());
 
+  end = std::clock();
+  std::cout << "time for preparing the gram matrix: " << double(end - begin)/CLOCKS_PER_SEC << std::endl;
+  begin = std::clock();
+
   // compute the Cholesky decomposition of the Gram matrix
   chol_gram_matrix_ = gram_matrix_.ldlt();
 
+  end = std::clock();
+  std::cout << "time for the LDLT: " << double(end - begin)/CLOCKS_PER_SEC << std::endl;
+  begin = std::clock();
+
   // pre-compute the alpha, which is the solution of the chol to the data.
   alpha_ = chol_gram_matrix_.solve(data_out_);
+
+  end = std::clock();
+  std::cout << "time for solving for alpha: " << double(end - begin)/CLOCKS_PER_SEC << std::endl;
+  begin = std::clock();
 
   if(use_explicit_trend_) {
     feature_vectors_ = Eigen::MatrixXd(2,data_loc_.rows());
@@ -256,6 +275,9 @@ void GP::infer() {
 
     beta_ = chol_feature_matrix_.solve(feature_vectors_)*alpha_;
   }
+  end = std::clock();
+  std::cout << "time for the explicit trend: " << double(end - begin)/CLOCKS_PER_SEC << std::endl;
+  begin = std::clock();
 }
 
 void GP::infer(const Eigen::VectorXd& data_loc,
