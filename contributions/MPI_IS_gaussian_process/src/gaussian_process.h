@@ -55,139 +55,140 @@
 // make the Cholesky decomposition stable.
 #define JITTER 1e-6
 
-class GP {
+class GP
+{
 private:
-  covariance_functions::CovFunc* covFunc_;
-  Eigen::VectorXd data_loc_;
-  Eigen::VectorXd data_out_;
-  Eigen::MatrixXd gram_matrix_;
-  std::vector<Eigen::MatrixXd> gram_matrix_derivatives_;
-  Eigen::VectorXd alpha_;
-  Eigen::LDLT<Eigen::MatrixXd> chol_gram_matrix_;
-  double log_noise_sd_;
-  bool use_explicit_trend_;
-  Eigen::MatrixXd feature_vectors_;
-  Eigen::MatrixXd feature_matrix_;
-  Eigen::LDLT<Eigen::MatrixXd> chol_feature_matrix_;
-  Eigen::VectorXd beta_;
+    covariance_functions::CovFunc* covFunc_;
+    Eigen::VectorXd data_loc_;
+    Eigen::VectorXd data_out_;
+    Eigen::MatrixXd gram_matrix_;
+    std::vector<Eigen::MatrixXd> gram_matrix_derivatives_;
+    Eigen::VectorXd alpha_;
+    Eigen::LDLT<Eigen::MatrixXd> chol_gram_matrix_;
+    double log_noise_sd_;
+    bool use_explicit_trend_;
+    Eigen::MatrixXd feature_vectors_;
+    Eigen::MatrixXd feature_matrix_;
+    Eigen::LDLT<Eigen::MatrixXd> chol_feature_matrix_;
+    Eigen::VectorXd beta_;
 
 public:
-  typedef std::pair<Eigen::VectorXd, Eigen::MatrixXd> VectorMatrixPair;
+    typedef std::pair<Eigen::VectorXd, Eigen::MatrixXd> VectorMatrixPair;
 
-  GP(); // allowing the standard constructor makes the use so much easier!
-  GP(const covariance_functions::CovFunc& covFunc);
-  GP(const double noise_variance,
-     const covariance_functions::CovFunc& covFunc);
-  ~GP(); // Need to tidy up
+    GP(); // allowing the standard constructor makes the use so much easier!
+    GP(const covariance_functions::CovFunc& covFunc);
+    GP(const double noise_variance,
+       const covariance_functions::CovFunc& covFunc);
+    ~GP(); // Need to tidy up
 
-  GP(const GP& that);
-  GP& operator=(const GP& that);
+    GP(const GP& that);
+    GP& operator=(const GP& that);
 
-  /*! Sets the covariance function
-   *
-   * This operation is possible only if there is not inference going on in the
-   * current instance. This is useful after initialisation.
-   */
-  bool setCovarianceFunction(const covariance_functions::CovFunc& covFunc);
+    /*! Sets the covariance function
+     *
+     * This operation is possible only if there is not inference going on in the
+     * current instance. This is useful after initialisation.
+     */
+    bool setCovarianceFunction(const covariance_functions::CovFunc& covFunc);
 
 
-  /*!
-   * Returns a GP sample for the given locations.
-   *
-   * Returns a sample of the prior if the Gram matrix is empty.
-   */
-  Eigen::VectorXd drawSample(const Eigen::VectorXd& locations) const;
+    /*!
+     * Returns a GP sample for the given locations.
+     *
+     * Returns a sample of the prior if the Gram matrix is empty.
+     */
+    Eigen::VectorXd drawSample(const Eigen::VectorXd& locations) const;
 
-  /*!
-   * Returns a sample of the GP based on a given vector of random numbers.
-   */
-  Eigen::VectorXd drawSample(const Eigen::VectorXd& locations,
-                             const Eigen::VectorXd& random_vector) const;
+    /*!
+     * Returns a sample of the GP based on a given vector of random numbers.
+     */
+    Eigen::VectorXd drawSample(const Eigen::VectorXd& locations,
+                               const Eigen::VectorXd& random_vector) const;
 
-  /*!
-   * Builds an inverts the Gram matrix for a given set of datapoints.
-   *
-   * This function works on the already stored data and doesn't return
-   * anything. The work is done here, I/O somewhere else.
-   */
-  void infer();
+    /*!
+     * Builds an inverts the Gram matrix for a given set of datapoints.
+     *
+     * This function works on the already stored data and doesn't return
+     * anything. The work is done here, I/O somewhere else.
+     */
+    void infer();
 
-  /*!
-   * Stores the given datapoints in the form of data location \a data_loc and
-   * the output values \a data_out. Calls infer() everytime so that the Gram
-   * matrix is rebuild and the Cholesky decomposition is computed.
-   */
-  void infer(const Eigen::VectorXd& data_loc,
-             const Eigen::VectorXd& data_out);
+    /*!
+     * Stores the given datapoints in the form of data location \a data_loc and
+     * the output values \a data_out. Calls infer() everytime so that the Gram
+     * matrix is rebuild and the Cholesky decomposition is computed.
+     */
+    void infer(const Eigen::VectorXd& data_loc,
+               const Eigen::VectorXd& data_out);
 
-  /*!
-   * Sets the GP back to the prior:
-   * Removes datapoints, empties the Gram matrix.
-   */
-  void clear();
+    /*!
+     * Sets the GP back to the prior:
+     * Removes datapoints, empties the Gram matrix.
+     */
+    void clear();
 
-  /*!
-   * Predicts the mean and covariance for a vector of locations.
-   *
-   * This function just builds the prior and mixed covariance matrices and
-   * calls the other predict afterwards.
-   */
-  VectorMatrixPair predict(const Eigen::VectorXd& locations) const;
+    /*!
+     * Predicts the mean and covariance for a vector of locations.
+     *
+     * This function just builds the prior and mixed covariance matrices and
+     * calls the other predict afterwards.
+     */
+    VectorMatrixPair predict(const Eigen::VectorXd& locations) const;
 
-  /*!
-   * Does the real work for predict. Solves the Cholesky decomposition for the
-   * given matrices. The Gram matrix and measurements need to be cached
-   * already.
-   */
-  VectorMatrixPair predict(const Eigen::MatrixXd& prior_cov,
-                           const Eigen::MatrixXd& mixed_cov,
-                           const Eigen::MatrixXd& phi = Eigen::MatrixXd()) const;
+    /*!
+     * Does the real work for predict. Solves the Cholesky decomposition for the
+     * given matrices. The Gram matrix and measurements need to be cached
+     * already.
+     */
+    VectorMatrixPair predict(const Eigen::MatrixXd& prior_cov,
+                             const Eigen::MatrixXd& mixed_cov,
+                             const Eigen::MatrixXd& phi = Eigen::MatrixXd()) const;
 
-  /*!
-   * Calculates the negative log likelihood.
-   *
-   * This function is used for model selection and optimization of hyper
-   * parameters. The calculations are completely done on the cached datapoints.
-   */
-  double neg_log_likelihood() const;
+    /*!
+     * Calculates the negative log likelihood.
+     *
+     * This function is used for model selection and optimization of hyper
+     * parameters. The calculations are completely done on the cached datapoints.
+     */
+    double neg_log_likelihood() const;
 
-  /*!
-   * Calculates the derivative of the negative log likelihood.
-   *
-   * This function is used for model selection and optimization of hyper
-   * parameters. The calculations are completely done on the cached datapoints.
-   */
-  Eigen::VectorXd neg_log_likelihood_gradient() const;
+    /*!
+     * Calculates the derivative of the negative log likelihood.
+     *
+     * This function is used for model selection and optimization of hyper
+     * parameters. The calculations are completely done on the cached datapoints.
+     */
+    Eigen::VectorXd neg_log_likelihood_gradient() const;
 
-  /*!
-   * Sets the hyperparameters to the given vector.
-   */
-  void setHyperParameters(const Eigen::VectorXd& hyperParameters);
+    /*!
+     * Sets the hyperparameters to the given vector.
+     */
+    void setHyperParameters(const Eigen::VectorXd& hyperParameters);
 
-  /*!
-   * Returns the hyperparameters to the given vector.
-   */
-  Eigen::VectorXd getHyperParameters() const;
+    /*!
+     * Returns the hyperparameters to the given vector.
+     */
+    Eigen::VectorXd getHyperParameters() const;
 
-  /*!
-   * Sets the covariance hyperparameters to the given vector.
-   */
-  void setCovarianceHyperParameters(const Eigen::VectorXd& hyperParameters);
+    /*!
+     * Sets the covariance hyperparameters to the given vector.
+     */
+    void setCovarianceHyperParameters(const Eigen::VectorXd& hyperParameters);
 
-  /*!
-   * Optimizes the hyperparameters for a certain number of line searches
-   */
-  Eigen::VectorXd optimizeHyperParameters(int number_of_linesearches) const;
+    /*!
+     * Optimizes the hyperparameters for a certain number of line searches
+     */
+    Eigen::VectorXd optimizeHyperParameters(int number_of_linesearches) const;
 
-  /*!
-   * Enables the use of a explicit linear basis function.
-   */
-  void enableExplicitTrend();
+    /*!
+     * Enables the use of a explicit linear basis function.
+     */
+    void enableExplicitTrend();
 
-  /*!
-   * Disables the use of a explicit linear basis function.
-   */
-  void disableExplicitTrend();
+    /*!
+     * Disables the use of a explicit linear basis function.
+     */
+    void disableExplicitTrend();
 
 };
 
