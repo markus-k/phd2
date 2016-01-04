@@ -646,23 +646,6 @@ for(int h = 0; h < hyperParams.rows(); ++h) {
 }
 }
 
-TEST_F(GPTest, likelihood_optimization_test) {
-  Eigen::VectorXd hyperParams(5);
-  hyperParams = (hyperParams << 0.1, 10, 200, 1, 20000).finished().array().log();
-
-  Eigen::VectorXd location = 100*math_tools::generate_normal_random_matrix(100,1);
-
-  Eigen::VectorXd output = gp_.drawSample(location);
-
-  gp_.infer(location, output);
-
-  Eigen::VectorXd result = gp_.optimizeHyperParameters(20);
-  for(size_t i(0), j(result.size()); i < j; i++) {
-    EXPECT_FALSE(math_tools::isNaN(result(i)));
-    EXPECT_LT(std::abs(result(i)), std::numeric_limits<Eigen::VectorXd::Scalar>::infinity());
-  }
-}
-
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

@@ -41,9 +41,7 @@
 
 #include "gaussian_process.h"
 #include "math_tools.h"
-#include "objective_function.h"
 #include "covariance_functions.h"
-#include "bfgs_optimizer.h"
 
 GP::GP() : covFunc_(0), // initialize pointer to null
   data_loc_(Eigen::VectorXd()),
@@ -327,44 +325,6 @@ void GP::setCovarianceHyperParameters(const Eigen::VectorXd& hyperParameters) {
          "setCovarianceHyperParameters()!");
   covFunc_->setParameters(hyperParameters);
   infer();
-}
-
-/*!
- * A wrapper objective function that uses an objective in the form of a
- * gaussian process.
- */
-class GPObjective : public bfgs_optimizer::ObjectiveFunction {
-private:
-  GP* gp_;
-  GPObjective();
-
-public:
-  GPObjective(GP* gp) : gp_(gp) {}
-  virtual void evaluate(const Eigen::VectorXd& x,
-                        double* function_value,
-                        Eigen::VectorXd* derivative) const
-  {
-    gp_->setHyperParameters(x);
-
-    *function_value = gp_->neg_log_likelihood();
-    *derivative = gp_->neg_log_likelihood_gradient();
-  }
-};
-
-
-Eigen::VectorXd GP::optimizeHyperParameters(int number_of_linesearches) const {
-
-  // this way, we avoid calling setHyperParameters at enter AND exit of evaluate
-  // which indirectly calls infer.
-  GP this_copy(*this);
-  GPObjective gpo(&this_copy);
-
-  // optimisation
-  bfgs_optimizer::BFGS bfgs(&gpo, number_of_linesearches);
-
-  Eigen::VectorXd result = bfgs.minimize(getHyperParameters());
-
-  return result;
 }
 
 void GP::enableExplicitTrend() {

@@ -42,10 +42,6 @@ set(gp_tools_SRC
     ${gaussian_process_root_dir}/tools/math_tools.h
     ${gaussian_process_root_dir}/tools/circular_buffer.h
     ${gaussian_process_root_dir}/tools/circular_buffer.cpp
-    ${gaussian_process_root_dir}/tools/bfgs_optimizer.cpp
-    ${gaussian_process_root_dir}/tools/bfgs_optimizer.h
-    ${gaussian_process_root_dir}/tools/objective_function.cpp
-    ${gaussian_process_root_dir}/tools/objective_function.h
    )
 add_library(MPIIS_GP_TOOLS STATIC ${gp_tools_SRC})
 target_include_directories(MPIIS_GP_TOOLS PRIVATE ${EIGEN_SRC} ${gaussian_process_root_dir}/src)
