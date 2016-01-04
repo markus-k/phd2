@@ -38,152 +38,164 @@
 #include <cmath>
 #include <cstdint>
 
-namespace math_tools {
+namespace math_tools
+{
 
-Eigen::MatrixXd squareDistance(const Eigen::MatrixXd& a,
-                               const Eigen::MatrixXd& b) {
-  int aRows = a.rows();
-  int aCols = a.cols();
-  int bCols = b.cols();
+    Eigen::MatrixXd squareDistance(const Eigen::MatrixXd& a, const Eigen::MatrixXd& b)
+    {
+        int aRows = a.rows();
+        int aCols = a.cols();
+        int bCols = b.cols();
 
-  Eigen::MatrixXd am(aRows, aCols);    // mean-corrected a
-  Eigen::MatrixXd bm(aRows, bCols);    // mean-corrected b
-  // final result, aCols x bCols
-  Eigen::MatrixXd result(aCols, bCols);
+        Eigen::MatrixXd am(aRows, aCols);    // mean-corrected a
+        Eigen::MatrixXd bm(aRows, bCols);    // mean-corrected b
+        // final result, aCols x bCols
+        Eigen::MatrixXd result(aCols, bCols);
 
-  Eigen::VectorXd mean(aRows);
+        Eigen::VectorXd mean(aRows);
 
-  /*  If the two Matrices have the same address, it means the function was
-      called from the overloaded version, and thus the mean only has to be
-      computed once.
-   */
-  if (&a == &b) {  // Same address?
-    mean = a.rowwise().mean();
-    am = a.colwise() - mean;
-    bm = am;
-  } else {
-    if (aRows != b.rows()) {
-      throw std::runtime_error("Matrix dimension incorrect.");
+        /*  If the two Matrices have the same address, it means the function was
+            called from the overloaded version, and thus the mean only has to be
+            computed once.
+         */
+        if (&a == &b)    // Same address?
+        {
+            mean = a.rowwise().mean();
+            am = a.colwise() - mean;
+            bm = am;
+        }
+        else
+        {
+            if (aRows != b.rows())
+            {
+                throw std::runtime_error("Matrix dimension incorrect.");
+            }
+
+            mean = static_cast<double>(aCols) / (aCols + bCols) * a.rowwise().mean() +
+                   static_cast<double>(bCols) / (bCols + aCols) * b.rowwise().mean();
+
+            // The mean of the two Matrices is subtracted beforehand, because the
+            // squared error is independent of the mean and this makes the squares
+            // smaller.
+            am = a.colwise() - mean;
+            bm = b.colwise() - mean;
+        }
+
+        Eigen::MatrixXd a_square =
+            am.array().square().colwise()
+            .sum().transpose().rowwise() .replicate(bCols);
+
+        Eigen::MatrixXd b_square = bm.array().square().colwise().sum().colwise()
+                                   .replicate(aCols);
+
+        Eigen::MatrixXd twoab = 2 * (am.transpose()) * bm;
+
+        return (a_square.matrix() + b_square.matrix()) - twoab;
     }
 
-    mean = static_cast<double>(aCols) / (aCols + bCols) * a.rowwise().mean() +
-      static_cast<double>(bCols) / (bCols + aCols) * b.rowwise().mean();
+    Eigen::MatrixXd squareDistance(const Eigen::MatrixXd& a)
+    {
+        return squareDistance(a, a);
+    }
 
-    // The mean of the two Matrices is subtracted beforehand, because the
-    // squared error is independent of the mean and this makes the squares
-    // smaller.
-    am = a.colwise() - mean;
-    bm = b.colwise() - mean;
-  }
+    Eigen::MatrixXd generate_uniform_random_matrix_0_1(
+        const size_t n,
+        const size_t m)
+    {
+        Eigen::MatrixXd result = Eigen::MatrixXd(n, m);
+        result.setRandom();
+        Eigen::MatrixXd temp = result.array() + 1;
+        result = temp / 2.0;
+        result = result.array().max(1e-10);
+        result = result.array().min(1.0);
+        return result;
+    }
 
-  Eigen::MatrixXd a_square =
-    am.array().square().colwise()
-    .sum().transpose().rowwise() .replicate(bCols);
+    Eigen::MatrixXd box_muller(const Eigen::VectorXd& vRand)
+    {
+        size_t n = vRand.rows();
+        size_t m = n / 2;
 
-  Eigen::MatrixXd b_square = bm.array().square().colwise().sum().colwise()
-                             .replicate(aCols);
+        Eigen::ArrayXd rand1 = vRand.head(m);
+        Eigen::ArrayXd rand2 = vRand.tail(m);
 
-  Eigen::MatrixXd twoab = 2 * (am.transpose()) * bm;
+        /* Implemented according to
+         * http://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+         */
 
-  return (a_square.matrix() + b_square.matrix()) - twoab;
-}
+        rand1 = rand1.max(1e-10);
+        rand1 = rand1.min(1.0);
 
-Eigen::MatrixXd squareDistance(const Eigen::MatrixXd& a) {
-  return squareDistance(a, a);
-}
+        rand1 = -2 * rand1.log();
+        rand1 = rand1.sqrt();
 
-Eigen::MatrixXd generate_uniform_random_matrix_0_1(
-    const size_t n,
-    const size_t m) {
-  Eigen::MatrixXd result = Eigen::MatrixXd(n, m);
-  result.setRandom();
-  Eigen::MatrixXd temp = result.array() + 1;
-  result = temp / 2.0;
-  result = result.array().max(1e-10);
-  result = result.array().min(1.0);
-  return result;
-}
+        rand2 = rand2 * 2 * M_PI;
 
-Eigen::MatrixXd box_muller(const Eigen::VectorXd &vRand) {
-  size_t n = vRand.rows();
-  size_t m = n / 2;
+        Eigen::MatrixXd result(2 * m, 1);
+        Eigen::MatrixXd res1 = (rand1 * rand2.cos()).matrix();
+        Eigen::MatrixXd res2 = (rand1 * rand2.sin()).matrix();
+        result << res1, res2;
 
-  Eigen::ArrayXd rand1 = vRand.head(m);
-  Eigen::ArrayXd rand2 = vRand.tail(m);
+        return result;
+    }
 
-  /* Implemented according to
-   * http://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
-   */
+    Eigen::MatrixXd generate_normal_random_matrix(
+        const size_t n,
+        const size_t m)
+    {
+        // if n*m is odd, we need one random number extra!
+        // therefore, we have to round up here.
+        size_t N = static_cast<size_t>(std::ceil(n * m / 2.0));
 
-  rand1 = rand1.max(1e-10);
-  rand1 = rand1.min(1.0);
+        Eigen::MatrixXd result(2 * N, 1);
+        // push random samples through the Box-Muller transform
+        result = box_muller(generate_uniform_random_matrix_0_1(2 * N, 1));
+        result.conservativeResize(n, m);
+        return result;
+    }
 
-  rand1 = -2 * rand1.log();
-  rand1 = rand1.sqrt();
+    std::pair<Eigen::VectorXd, Eigen::VectorXd> compute_spectrum(Eigen::VectorXd& data, int N)
+    {
 
-  rand2 = rand2 * 2 * M_PI;
+        int N_data = data.rows();
 
-  Eigen::MatrixXd result(2 * m, 1);
-  Eigen::MatrixXd res1 = (rand1 * rand2.cos()).matrix();
-  Eigen::MatrixXd res2 = (rand1 * rand2.sin()).matrix();
-  result << res1, res2;
+        if (N < N_data)
+        {
+            N = N_data;
+        }
+        N = std::pow(2, std::ceil(std::log(N) / std::log(2)));
 
-  return result;
-}
+        Eigen::VectorXd padded_data = Eigen::VectorXd::Zero(N);
+        padded_data.head(N_data) = data;
 
-Eigen::MatrixXd generate_normal_random_matrix(
-    const size_t n,
-    const size_t m) {
-  // if n*m is odd, we need one random number extra!
-  // therefore, we have to round up here.
-  size_t N = static_cast<size_t>(std::ceil(n * m / 2.0));
+        Eigen::FFT<double> fft;
 
-  Eigen::MatrixXd result(2 * N, 1);
-  // push random samples through the Box-Muller transform
-  result = box_muller(generate_uniform_random_matrix_0_1(2 * N, 1));
-  result.conservativeResize(n, m);
-  return result;
-}
+        std::vector<double> vec_data(padded_data.data(), padded_data.data() + padded_data.rows() * padded_data.cols());
+        std::vector<std::complex<double>> vec_result;
+        fft.fwd(vec_result, vec_data);
 
-std::pair<Eigen::VectorXd, Eigen::VectorXd> compute_spectrum(Eigen::VectorXd &data, int N) {
+        Eigen::VectorXcd result = Eigen::Map<Eigen::VectorXcd>(&vec_result[0], vec_result.size());
 
-  int N_data = data.rows();
+        int low_index = std::ceil(static_cast<double>(N) / static_cast<double>(N_data));
 
-  if(N<N_data) {
-    N = N_data;
-  }
-  N = std::pow(2,std::ceil(std::log(N)/std::log(2)));
+        Eigen::VectorXd spectrum = result.segment(low_index, N / 2 - low_index + 1).array().abs().pow(2);
 
-  Eigen::VectorXd padded_data = Eigen::VectorXd::Zero(N);
-  padded_data.head(N_data) = data;
+        Eigen::VectorXd frequencies = Eigen::VectorXd::LinSpaced(N / 2 - low_index + 1, low_index, N / 2);
+        frequencies /= N;
 
-  Eigen::FFT<double> fft;
+        return std::make_pair(spectrum, frequencies);
+    }
 
-  std::vector<double> vec_data(padded_data.data(), padded_data.data() + padded_data.rows() * padded_data.cols());
-  std::vector<std::complex<double>> vec_result;
-  fft.fwd(vec_result, vec_data);
+    Eigen::VectorXd hamming_window(int N)
+    {
+        double alpha = 0.54;
+        double beta = 0.46;
 
-  Eigen::VectorXcd result = Eigen::Map<Eigen::VectorXcd>(&vec_result[0], vec_result.size());
+        Eigen::VectorXd range = Eigen::VectorXd::LinSpaced(N, 0, 1);
+        Eigen::VectorXd window = alpha - beta * std::cos(2 * M_PI * range.array());
 
-  int low_index = std::ceil(static_cast<double>(N)/static_cast<double>(N_data));
-
-  Eigen::VectorXd spectrum = result.segment(low_index,N/2 - low_index + 1).array().abs().pow(2);
-
-  Eigen::VectorXd frequencies = Eigen::VectorXd::LinSpaced(N/2 - low_index + 1, low_index, N/2);
-  frequencies /= N;
-
-  return std::make_pair(spectrum, frequencies);
-}
-
-Eigen::VectorXd hamming_window(int N) {
-  double alpha = 0.54;
-  double beta = 0.46;
-
-  Eigen::VectorXd range = Eigen::VectorXd::LinSpaced(N,0,1);
-  Eigen::VectorXd window = alpha - beta*std::cos(2*M_PI*range.array());
-
-  return window;
-}
+        return window;
+    }
 
 }  // namespace math_tools
 
