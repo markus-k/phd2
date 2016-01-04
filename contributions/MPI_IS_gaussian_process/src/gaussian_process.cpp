@@ -35,8 +35,6 @@
  *
  */
 
-
-
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 #include <cstdint>
@@ -54,7 +52,6 @@ GP::GP() : covFunc_(0), // initialize pointer to null
   alpha_(Eigen::VectorXd()),
   chol_gram_matrix_(Eigen::LDLT<Eigen::MatrixXd>()),
   log_noise_sd_(-1E20),
-  prior_vector_(1, 0),
   use_explicit_trend_(false),
   feature_vectors_(Eigen::MatrixXd()),
   feature_matrix_(Eigen::MatrixXd()),
@@ -70,7 +67,6 @@ GP::GP(const covariance_functions::CovFunc& covFunc) :
   alpha_(Eigen::VectorXd()),
   chol_gram_matrix_(Eigen::LDLT<Eigen::MatrixXd>()),
   log_noise_sd_(-1E20),
-  prior_vector_(covFunc.getParameterCount() + 1, 0),
   use_explicit_trend_(false),
   feature_vectors_(Eigen::MatrixXd()),
   feature_matrix_(Eigen::MatrixXd()),
@@ -87,7 +83,6 @@ GP::GP(const double noise_variance,
   alpha_(Eigen::VectorXd()),
   chol_gram_matrix_(Eigen::LDLT<Eigen::MatrixXd>()),
   log_noise_sd_(std::log(noise_variance)),
-  prior_vector_(covFunc.getParameterCount() + 1, 0),
   use_explicit_trend_(false),
   feature_vectors_(Eigen::MatrixXd()),
   feature_matrix_(Eigen::MatrixXd()),
@@ -97,11 +92,6 @@ GP::GP(const double noise_variance,
 
 GP::~GP() {
   delete this->covFunc_; // tidy up since we are responsible for the covFunc.
-  for(std::vector<parameter_priors::ParameterPrior*>::iterator it =
-      prior_vector_.begin(); it != prior_vector_.end(); ++it) {
-    delete *it;
-    *it = 0;
-  }
 }
 
 GP::GP(const GP& that) :
@@ -120,25 +110,14 @@ GP::GP(const GP& that) :
   beta_(that.beta_)
 {
   covFunc_ = that.covFunc_->clone();
-  for(size_t i = 0; i < that.prior_vector_.size(); ++i) {
-    if(that.prior_vector_[i] != 0) {
-      prior_vector_.push_back(that.prior_vector_[i]->clone());
-    } else {
-      prior_vector_.push_back(0);
-    }
-  }
 }
 
 bool GP::setCovarianceFunction(const covariance_functions::CovFunc& covFunc)
 {
-  if(data_loc_.size() != 0 || data_out_.size() != 0 || prior_vector_.size() != 1)
+  if(data_loc_.size() != 0 || data_out_.size() != 0)
     return false;
   delete covFunc_;
   covFunc_ = covFunc.clone();
-
-  // to fix: we cannot do the call twice because of this. We should find a more
-  // appropriate way of testing that (all zeros maybe?)
-  prior_vector_.resize(covFunc_->getParameterCount() + 1, 0);
 
   return true;
 }
@@ -149,18 +128,6 @@ GP& GP::operator=(const GP& that) {
     covariance_functions::CovFunc* temp = covFunc_;  // store old pointer...
     covFunc_ = that.covFunc_->clone();  // ... first clone ...
     delete temp;  // ... and then delete.
-
-    for(size_t i = 0; i < prior_vector_.size(); ++i) {
-      delete prior_vector_[i];
-    }
-    prior_vector_.clear();
-    for(size_t i = 0; i < that.prior_vector_.size(); ++i) {
-      if(that.prior_vector_[i] != 0) {
-        prior_vector_.push_back(that.prior_vector_[i]->clone());
-      } else {
-        prior_vector_.push_back(0);
-      }
-    }
 
     // copy the rest
     data_loc_ = that.data_loc_;
@@ -312,29 +279,6 @@ GP::VectorMatrixPair GP::predict(const Eigen::MatrixXd& prior_cov,
   return std::make_pair(m, v);
 }
 
-double GP::neg_log_posterior() const {
-  double result = neg_log_likelihood();
-  Eigen::VectorXd hyperParameters = getHyperParameters();
-  for(size_t i = 0; i < prior_vector_.size(); ++i) {
-    if(prior_vector_[i] != 0) {
-      result += prior_vector_[i]->neg_log_prob(hyperParameters[i]);
-    }
-  }
-  return result;
-}
-
-Eigen::VectorXd GP::neg_log_posterior_gradient() const {
-  Eigen::VectorXd result = neg_log_likelihood_gradient();
-  Eigen::VectorXd hyperParameters = getHyperParameters();
-  for(size_t i = 0; i < prior_vector_.size(); ++i) {
-    if(prior_vector_[i] != 0) {
-      result[i] +=
-          prior_vector_[i]->neg_log_prob_derivative(hyperParameters[i]);
-    }
-  }
-  return result;
-}
-
 double GP::neg_log_likelihood() const {
   double result = 0;
   if(gram_matrix_.rows() > 0) {
@@ -402,8 +346,8 @@ public:
   {
     gp_->setHyperParameters(x);
 
-    *function_value = gp_->neg_log_posterior();
-    *derivative = gp_->neg_log_posterior_gradient();
+    *function_value = gp_->neg_log_likelihood();
+    *derivative = gp_->neg_log_likelihood_gradient();
   }
 };
 
@@ -421,16 +365,6 @@ Eigen::VectorXd GP::optimizeHyperParameters(int number_of_linesearches) const {
   Eigen::VectorXd result = bfgs.minimize(getHyperParameters());
 
   return result;
-}
-
-void GP::setHyperPrior(const parameter_priors::ParameterPrior& prior, const
-    int index) {
-  prior_vector_[index] = prior.clone();
-}
-
-void GP::clearHyperPrior(int index) {
-  delete prior_vector_[index];
-  prior_vector_[index] = 0;
 }
 
 void GP::enableExplicitTrend() {

@@ -48,7 +48,6 @@
 #include <utility>
 #include <cstdint>
 #include "covariance_functions.h"
-#include "parameter_priors.h"
 
 // Constants
 
@@ -66,7 +65,6 @@ private:
   Eigen::VectorXd alpha_;
   Eigen::LDLT<Eigen::MatrixXd> chol_gram_matrix_;
   double log_noise_sd_;
-  std::vector<parameter_priors::ParameterPrior*> prior_vector_;
   bool use_explicit_trend_;
   Eigen::MatrixXd feature_vectors_;
   Eigen::MatrixXd feature_matrix_;
@@ -146,16 +144,6 @@ public:
                            const Eigen::MatrixXd& phi = Eigen::MatrixXd()) const;
 
   /*!
-   * Combines the likelihood and the prior to obtain the posterior.
-   */
-  double neg_log_posterior() const;
-
-  /*!
-   * Derivative of the log posterior.
-   */
-  Eigen::VectorXd neg_log_posterior_gradient() const;
-
-  /*!
    * Calculates the negative log likelihood.
    *
    * This function is used for model selection and optimization of hyper
@@ -170,13 +158,6 @@ public:
    * parameters. The calculations are completely done on the cached datapoints.
    */
   Eigen::VectorXd neg_log_likelihood_gradient() const;
-
-  /*!
-   * A wrapper that combines the likelihood and gradient in a form that is
-   * compatible to the BFGS optimizer.
-   */
-  //void evaluate(const Eigen::VectorXd& x,
-  //              double* function_value, Eigen::VectorXd* derivative);
 
   /*!
    * Sets the hyperparameters to the given vector.
@@ -197,17 +178,6 @@ public:
    * Optimizes the hyperparameters for a certain number of line searches
    */
   Eigen::VectorXd optimizeHyperParameters(int number_of_linesearches) const;
-
-  /*!
-   * Sets a hyperprior for a certain hyperparameter (addressed by the
-   * parameter's index).
-   */
-  void setHyperPrior(const parameter_priors::ParameterPrior& prior, int index);
-
-  /*!
-   * Removes a hyperprior for a given parameter index.
-   */
-  void clearHyperPrior(int index);
 
   /*!
    * Enables the use of a explicit linear basis function.

@@ -57,8 +57,6 @@ set(gp_SRC
     ${gaussian_process_root_dir}/src/gaussian_process.h
     ${gaussian_process_root_dir}/src/covariance_functions.cpp
     ${gaussian_process_root_dir}/src/covariance_functions.h
-    ${gaussian_process_root_dir}/src/parameter_priors.cpp
-    ${gaussian_process_root_dir}/src/parameter_priors.h
     )
 add_library(MPIIS_GP STATIC ${gp_SRC})
 target_link_libraries(MPIIS_GP PUBLIC MPIIS_GP_TOOLS)
