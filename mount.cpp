@@ -569,6 +569,8 @@ Mount::Mount(void)
     m_guidingEnabled = true;
 
     m_backlashComp = 0;
+    m_lastStep.mount = this;
+    m_lastStep.frameNumber = -1; // invalidate
 
     ClearCalibration();
 
@@ -676,6 +678,24 @@ void Mount::FlagBacklashOverShoot(double pixelAmount, GuideAxis axis)
         m_backlashComp->HandleOverShoot((int) (pixelAmount / m_cal.yRate));
 }
 
+void Mount::LogGuideStepInfo()
+{
+    if (m_lastStep.frameNumber < 0)
+        return;
+
+    GuideLog.GuideStep(m_lastStep);
+    EvtServer.NotifyGuideStep(m_lastStep);
+
+    if (m_lastStep.moveType != MOVETYPE_DIRECT)
+    {
+        pFrame->pGraphLog->AppendData(m_lastStep);
+        pFrame->pTarget->AppendData(m_lastStep);
+        GuidingAssistant::NotifyGuideStep(m_lastStep);
+    }
+
+    m_lastStep.frameNumber = -1; // invalidate
+}
+
 Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveType moveType)
 {
     MOVE_RESULT result = MOVE_OK;
@@ -766,12 +786,17 @@ Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveT
             Debug.AddLine(msg);
         }
 
-        GuideStepInfo info;
-        info.mount = this;
+        // Record the info about the guide step. The info will be picked up back in the main UI thread.
+        // We don't want to do anything with the info here in the worker thread since UI operations are
+        // not allowed outside the main UI thread.
+
+        GuideStepInfo& info = m_lastStep;
+
+        info.moveType = moveType;
         info.frameNumber = pFrame->m_frameCounter;
         info.time = pFrame->TimeSinceGuidingStarted();
-        info.cameraOffset = &cameraVectorEndpoint;
-        info.mountOffset = &mountVectorEndpoint;
+        info.cameraOffset = cameraVectorEndpoint;
+        info.mountOffset = mountVectorEndpoint;
         info.guideDistanceRA = xDistance;
         info.guideDistanceDec = yDistance;
         info.durationRA = xMoveResult.amountMoved;
@@ -785,16 +810,6 @@ Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveT
         info.starSNR = pFrame->pGuider->SNR();
         info.avgDist = pFrame->pGuider->CurrentError();
         info.starError = pFrame->pGuider->StarError();
-
-        GuideLog.GuideStep(info);
-        EvtServer.NotifyGuideStep(info);
-
-        if (moveType != MOVETYPE_DIRECT)
-        {
-            pFrame->pGraphLog->AppendData(info);
-            pFrame->pTarget->AppendData(info);
-            GuidingAssistant::NotifyGuideStep(info);
-        }
     }
     catch (const wxString& errMsg)
     {
@@ -1202,6 +1217,7 @@ void Mount::SetCalibrationDetails(const CalibrationDetails& calDetails)
     pConfig->Profile.SetDouble(prefix + "dec_guide_rate", calDetails.decGuideSpeed);
     pConfig->Profile.SetDouble(prefix + "ortho_error", calDetails.orthoError);
     pConfig->Profile.SetDouble(prefix + "orig_binning", calDetails.origBinning);
+    pConfig->Profile.SetString(prefix + "orig_timestamp", calDetails.origTimestamp);
 
     for (std::vector<wxRealPoint>::const_iterator it = calDetails.raSteps.begin(); it != calDetails.raSteps.end(); ++it)
     {
@@ -1221,6 +1237,7 @@ void Mount::SetCalibrationDetails(const CalibrationDetails& calDetails)
 
     pConfig->Profile.SetInt(prefix + "ra_step_count", calDetails.raStepCount);
     pConfig->Profile.SetInt(prefix + "dec_step_count", calDetails.decStepCount);
+    pConfig->Profile.SetInt(prefix + "last_issue", (int)calDetails.lastIssue);
 }
 
 inline static PierSide pier_side(int val)
@@ -1267,6 +1284,8 @@ void Mount::GetCalibrationDetails(CalibrationDetails *details)
     details->raStepCount = pConfig->Profile.GetInt(prefix + "ra_step_count", 0);
     details->decStepCount = pConfig->Profile.GetInt(prefix + "dec_step_count", 0);
     details->origBinning = pConfig->Profile.GetDouble(prefix + "orig_binning", 1.0);
+    details->lastIssue = (CalibrationIssueType) pConfig->Profile.GetInt(prefix + "last_issue", 0);
+    details->origTimestamp = pConfig->Profile.GetString(prefix + "orig_timestamp", "Unknown");
     // Populate raSteps
     stepStr = pConfig->Profile.GetString(prefix + "ra_steps", "");
     tok.SetString(stepStr, "},", wxTOKEN_STRTOK);
@@ -1342,75 +1361,6 @@ void Mount::ClearHistory(void)
     {
         m_pYGuideAlgorithm->reset();
     }
-}
-
-// Return a default guiding declination that will "do no harm" in terms of RA rate adjustments - either the Dec
-// where the calibration was done or zero
-double Mount::GetDefGuidingDeclination()
-{
-    return m_calibrated ? m_cal.declination : 0.0;
-}
-
-// Get a value of declination, in radians, that can be used for adjusting the RA guide rate.  Normally, this will be gotten
-// from the ASCOM scope subclass, but it could also come from the 'aux' mount connection.  If this method in the base class is
-// called, we don't have any pointing info, so return a default that will do no harm.
-// Don't force clients to catch exceptions.  Callers who want the traditional ASCOM
-// dec value should use GetCoordinates().
-double Mount::GetGuidingDeclination(void)
-{
-    return GetDefGuidingDeclination();
-}
-
-// Baseline implementations for non-ASCOM subclasses.  Methods will
-// return a sensible default or an error (true)
-bool Mount::GetGuideRates(double *pRAGuideRate, double *pDecGuideRate)
-{
-    return true; // error, not implemented
-}
-
-bool Mount::GetCoordinates(double *ra, double *dec, double *siderealTime)
-{
-    return true; // error
-}
-
-bool Mount::GetSiteLatLong(double *latitude, double *longitude)
-{
-    return true; // error
-}
-
-bool Mount::CanSlew(void)
-{
-    return false;
-}
-
-bool Mount::CanReportPosition()
-{
-    return false;
-}
-
-bool Mount::CanPulseGuide()
-{
-    return false;
-}
-
-bool Mount::SlewToCoordinates(double ra, double dec)
-{
-    return true; // error
-}
-
-bool Mount::CanCheckSlewing(void)
-{
-    return false;
-}
-
-bool Mount::Slewing(void)
-{
-    return false;
-}
-
-PierSide Mount::SideOfPier(void)
-{
-    return PIER_SIDE_UNKNOWN;
 }
 
 wxString Mount::GetSettingsSummary()

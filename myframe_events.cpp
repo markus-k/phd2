@@ -353,6 +353,8 @@ void MyFrame::OnExposeComplete(usImage *pNewFrame, bool err)
 
         if (err)
         {
+            Debug.Write("OnExposeComplete(): Capture Error reported\n");
+
             delete pNewFrame;
 
             StopCapturing();
@@ -366,8 +368,6 @@ void MyFrame::OnExposeComplete(usImage *pNewFrame, bool err)
             UpdateButtonsStatus();
             PhdController::AbortController("Error reported capturing image");
             SetStatusText(_("Stopped."));
-
-            Debug.Write("OnExposeComplete(): Capture Error reported\n");
 
             // some camera drivers disconnect the camera on error
             if (!pCamera->Connected)
@@ -431,6 +431,9 @@ void MyFrame::OnMoveComplete(wxThreadEvent& event)
         pThisMount->DecrementRequestCount();
 
         Mount::MOVE_RESULT moveResult = static_cast<Mount::MOVE_RESULT>(event.GetInt());
+
+        pMount->LogGuideStepInfo();
+
         if (moveResult != Mount::MOVE_OK)
         {
             if (moveResult == Mount::MOVE_STOP_GUIDING)
@@ -450,6 +453,7 @@ void MyFrame::OnMoveComplete(wxThreadEvent& event)
 
 void MyFrame::OnButtonStop(wxCommandEvent& WXUNUSED(event))
 {
+    Debug.Write("Stop button clicked\n");
     StopCapturing();
 }
 

@@ -4,7 +4,7 @@
   <h2>Tools and Utilities</h2><a href="#Manual_Guide">Manual Guide</a><br>
   <a href="#Auto-Select_Star">Auto-Select Star</a><br>
   <a href="#Calibration_Details">Calibration Details</a><br>
-  <a href="#PHD2_Server">PHD2 Server</a><br><a href="#Logging_and_Debug_Output">Logging and Debug Output</a><br>
+  <a href="#PHD2_Server">PHD2 Server</a><br><a href="#Dithering_Ops">Dithering Operations</a><br><a href="#Logging_and_Debug_Output">Logging and Debug Output</a><br>
   <a href="#Drift_Align">Drift Alignment</a><br>
   <a href="#Lock_Positions">Lock Positions</a><br>
   <a href="#Comet_Tracking">Comet Tracking</a><br><a href="#Guiding_Assistant">Guiding Assistant</a><br>
@@ -22,27 +22,27 @@ experiment with manual dithering. &nbsp;In the 'Tools' menu, click on
 'Manual
 Guide'&nbsp;<span style="font-weight: bold;"><span style="font-weight: bold;"></span></span>and
 a dialog will appear to let you move the mount at guide speed in any
-direction. Each time you press the button, a pulse of the&nbsp;duration
+direction. If you have an
+adaptive optics device attached, you'll see separate move buttons for
+both the AO and the secondary mount. &nbsp;Each time you press the button, a pulse of the&nbsp;duration
 specified in the 'Guide Pulse Duration' field will
 be sent. &nbsp;The default value is the 'calibration step-sze' set in
-the Advanced Options dialog. &nbsp;If you are debugging calibration
-problems, listen to (rather than watch) your mount to determine if the
-mount is getting
+the Advanced Options dialog. &nbsp;If you are debugging mount/calibration
+problems in the daytime, listen to (rather than watch) your mount to determine if it is getting
 the commands from <span style="font-style: italic;">PHD2</span>. The idea here is just to figure out if the
 mount is responding
 to <span style="font-style: italic;">PHD2</span>'s
 signals. You won't be able to see the mount move (it's moving
 at guide speed)
-but you may be able to hear it. Other options include watching the
-motors themselves or
+but you may be able to hear the motors. Other options include watching
+the
+motors and gears or
 attaching a laser pointer to your scope and aiming it at something
-fairly far away (to amplify your motions). &nbsp;If you have an
-adaptive optics device attached, you'll see separate move buttons for
-both the AO and the secondary mount. &nbsp;<br>
+fairly far away (to amplify your motions). &nbsp;A better&nbsp;approach
+for nighttime testing is to run the "star-cross" test described <a href="Trouble_shooting.htm#Star_cross_test">here</a>.&nbsp; &nbsp;<br>
 <br>
-<a name="Dithering"></a>Dithering
-is used primarily with image capture or automation applications,
-usually through the PHD2 server interface. &nbsp;However, you can do
+<a name="Dithering_Manual"></a>Dithering
+is used primarily with image capture or automation applications through the PHD2 server interface. &nbsp;However, you can do
 manual dithering or experiment with dither settings using the controls
 at the bottom of the dialog. &nbsp;The 'dither' amount field at the
 left controls the&nbsp;amount the mount will be moved , in units of
@@ -179,7 +179,70 @@ for an application to control most aspects of <span style="font-style: italic;">
 server API is available on
 the <a href="https://code.google.com/p/open-phd-guiding/w/list">PHD2
 Wiki</a>.<br>
-<br><h3><a name="Logging_and_Debug_Output"></a>Logging and Debug Output</h3>
+<br><h3><a name="Dithering_Ops"></a>Dithering</h3><big></big><p>The primary purpose of dithering&nbsp;is
+to make post-processing easier by removing some kinds of fixed-pattern
+noise in the images, especially hot pixels.&nbsp; This is almost purely
+a function of the camera you're using and to a lesser extent, the
+sophistication of the post-processing software.&nbsp; For imagers
+with&nbsp;temperature-regulated, low-noise cameras, dithering is mostly
+a convenient way to eliminate&nbsp;hot pixels that aren't getting
+removed by the dark frames.&nbsp; Hot pixel positions change as sensors
+age, so dark libraries don't usually correct for all of them. Those hot
+pixels can also be also removed in post-processing, but that becomes
+tedious if there are lots of them.&nbsp; It's also possible that
+dithering can help with some other kinds of sensor behavior such as
+column defects, and it's particularly helpful if there is no
+temperature regulation on the sensor and therefore no good way to use a
+dark library.&nbsp; DSLR imagers often use aggressive dithering for
+those reasons.&nbsp;In the PHD2 implementation, &nbsp; automated
+dithering is accomplished through the server interface, so make sure
+you have 'Enable Server' checked under the 'Tools' menu. &nbsp;You
+first specify a maximum dither size you want to use during the
+guiding session - this will be set in your imaging application.. Then,
+when that application issues a dither command, PHD2
+uses a random number generator to decide how large the dither will
+actually be for that command.&nbsp; The actual dither mount will be
+&gt; 0
+and &lt;= the maximum amount allowed. You want to use pseudo-random
+dither amounts like this to be sure that dithering doesn't follow a
+consistent pattern or shift the frame back to a location where it has
+previously been.&nbsp; But for some of the applications that do PHD2
+dithering, you
+can't specify the maximum amount directly - you are perhaps limited to
+choices like small/medium/large and the max dither amounts will have
+preset values.&nbsp; For that reason, PHD2 has a dither scaling
+parameter in the 'Global' tab of the Brain dialog.&nbsp; It is
+basically a multiplier term that lets you adjust the range of dither
+amounts that are possible.&nbsp; So a scale factor of 1 doesn't change
+the
+preset value at all, a value of 10 multiplies it by 10X, etc.&nbsp; If
+you're using an app that lets you specify the maximum amount directly
+(e.g. PHD_Dither), you should leave the dither scale set to 1.0.&nbsp;
+Otherwise, you can adjust the scale factor if you aren't
+happy with the overall range of dithering you're getting with one of
+the small/medium/large type imaging apps.</p><p>There are typically
+two costs associated with dithering: 1) the extra time and uncertainty
+required for "settling" and 2) the need to crop the final stacked frame
+in order to remove the low-signal margins. &nbsp;Settling is the term
+used for a period of stabilization after the mount has been moved by a
+dither command. &nbsp; The imaging app that starts the dither will also
+decide when the guiding has stabilized enough to continue
+imaging.&nbsp; The app can let PHD2 determine this by specifying the
+settling parameters or the app can do the calculations itself.&nbsp;
+You'll need to look at your imaging/dithering app to see what control
+you have over this process.&nbsp; If the app uses the latest PHD2
+server interfaces, it can specify a settling requirement that might
+look like "guiding errors must be less than 1.5 pixels for a period of
+at least 10 seconds."&nbsp; This is a process that can consume some
+time, depending on how tight the requirements are for settling.&nbsp;
+It is likely to take more time if you are dithering in declination and
+the dither forces a change in direction.&nbsp; Most mounts have some
+declination backlash, so it can take a number of guide commands to get
+the mount moving in the right direction, and then more time for the
+process to converge on the new target location for the guide
+star.&nbsp; That's why PHD2 also offers the option to dither only in
+right ascension. &nbsp;Again, this is an option on the 'Global' tab,
+right next to the dither scaling parameter.</p><h3><a name="Logging_and_Debug_Output"></a>Logging and Debug Output</h3>
 <span style="font-style: italic;">PHD2</span> automatically creates two types of log files: a debug log and a
 guiding log. &nbsp;Both are very useful for different reasons.
 &nbsp;The guiding log is similar to the one produced by PHD, but
@@ -228,12 +291,17 @@ of these image files is controlled from the 'Global' tab of the
 problem you're having, you should choose the 'Raw Fits' format for
 maximum flexibility.<br>
 <h3><a name="Drift_Align"></a>Drift Align</h3>
-Drift alignment is a well-known technique for achieving polar alignment and
+Drift alignment is a well-known technique for achieving polar alignment
+and
 is considered by many to be the "gold standard". &nbsp;The Drift
 Alignment tool is a&nbsp;wizard-like sequence of dialogs that can help
 you work through the drift alignment process and get quantifiable
-results. &nbsp;Once you've calibrated your guider, click on 'Drift
-Align' under the 'Tools' menu. &nbsp;The first Drift Align dialog will
+results. &nbsp;Once you've calibrated your guider and have started
+guiding, click on 'Drift
+Align' under the 'Tools' menu. &nbsp;The Drift Alignment tool will
+disable and re-enable declination guiding as necessary, so don't worry
+about that. &nbsp;It will also keep RA guiding active so&nbsp;uncorrected periodic error in the mount doesn't interfere with the
+measurements. &nbsp;The first Drift Align dialog will
 appear to help you adjust the azimuth on your mount. &nbsp;If you are
 using an ASCOM mount, you'll have the option of slewing to an area
 near the celestial equator and the celestial meridian. &nbsp;If you're
@@ -265,7 +333,7 @@ can use the 'notes' field to record which way the drift line moves
 depending on how you make the adjustment. &nbsp;For example, you might
 note that a counter-clockwise turn of the mount azimuth knob moves the
 drift line "up." &nbsp;Since these notes are retained across <span style="font-style: italic;">PHD2</span>
-sessions, subsequent drift alignments will probably proceed more
+sessions, subsequent drift alignments will probably go more
 quickly.<br>
 <br>
 Until you are experienced with drift aligning your particular mount, the
@@ -287,7 +355,12 @@ clear view of how the adjustment has moved the star on the guide frame.<br>
 <br>
 Next, click on the 'Altitude' button.
 &nbsp;Then slew the scope to a position near the celestial equator and
-25-30 degrees above the horizon. &nbsp;Click on the 'drift' button to
+25-30 degrees above the east or west horizon. &nbsp;If you have
+obstructions in both directions and can't slew this low, don't worry
+about it - just get as close as you can. &nbsp;Using higher elevations
+on the east or west horizon will still work, but it may take a bit
+longer to converge on your final polar alignment. &nbsp;Click on the
+'drift' button to
 begin collecting data for the altitude part of the alignment process.
 &nbsp;As before, you will iterate between making adjustments and
 measuring your alignment until you are satisfied with the result,
@@ -297,14 +370,19 @@ of the declination drift line.
 go back to the 'azimuth' measurement and repeat that procedure.
 &nbsp;If you work through these procedures systematically, you'll
 converge on a good polar alignment with a known degree of accuracy.
-&nbsp;A good polar alignment will&nbsp;help your guiding performance,
-especially in declination.<br><br>The
+&nbsp;A good polar alignment will&nbsp;help your guiding performance
+and will avoid field rotation in your images..<br><br>The
 drift alignment tool is easiest to use when you are using an ASCOM
 connection to your mount (including an 'Aux' connection). &nbsp;Even if
 you subsequently want to use
 ST-4 style guiding, you should use the ASCOM connection for drift
-alignment. &nbsp;If you can't do that for some reason, the following
-features will be impaired:<br><ul><li>Scope position data and slewing functions will not be available - you'll have to slew the scope yourself</li><li>The
+alignment to make things easier. &nbsp;If you can't do that for some reason, the following
+features will be impaired:<br><ul><li>Scope
+position data and slewing functions will not be available - you'll have
+to slew the scope yourself. &nbsp;Keep in mind, the target
+altitude/azimuth positions are only approximate - you don't need to be
+particularly concerned about accuracy - just get reasonably close with
+a good guide star available in the field of view.</li><li>The
 magenta circle that identifies the&nbsp;target for moving the star will be
 inaccurate and will be displayed as a dashed line. &nbsp;This dashed
 circle will identify only an upper bound to the adjustment, so you will

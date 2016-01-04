@@ -69,7 +69,7 @@
 
 #define APPNAME _T("PHD2 Guiding")
 #define PHDVERSION _T("2.5.0")
-#define PHDSUBVER _T("dev5")
+#define PHDSUBVER _T("dev9")
 #define FULLVER PHDVERSION PHDSUBVER
 
 #if defined (__WINDOWS__)
@@ -181,7 +181,7 @@ class wxSingleInstanceChecker;
 
 extern Mount *pMount;
 extern Mount *pSecondaryMount;
-extern Mount *pPointingSource;      // For using an 'aux' mount connection to get pointing info if the user has specified one
+extern Scope *pPointingSource;      // For using an 'aux' mount connection to get pointing info if the user has specified one
 extern GuideCamera *pCamera;
 
 inline static Scope *TheScope(void)

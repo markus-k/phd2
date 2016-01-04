@@ -36,15 +36,6 @@
 #ifndef SCOPE_H_INCLUDED
 #define SCOPE_H_INCLUDED
 
-enum Calibration_Issues
-{
-    CI_None,
-    CI_Steps,
-    CI_Angle,
-    CI_Rates,
-    CI_Different
-};
-
 #define CALIBRATION_RATE_UNCALIBRATED 123e4
 
 class Scope;
@@ -115,7 +106,7 @@ class Scope : public Mount
     bool m_stopGuidingWhenSlewing;
     Calibration m_prevCalibrationParams;
     CalibrationDetails m_prevCalibrationDetails;
-    Calibration_Issues m_lastCalibrationIssue;
+    CalibrationIssueType m_lastCalibrationIssue;
 
     enum CALIBRATION_STATE
     {
@@ -195,6 +186,7 @@ public:
 
     virtual void SetCalibration(const Calibration& cal);
     virtual void SetCalibrationDetails(const CalibrationDetails& calDetails, double xAngle, double yAngle, double binning);
+    virtual void FlagCalibrationIssue(const CalibrationDetails& calDetails, CalibrationIssueType issue);
     virtual bool IsCalibrated(void);
     virtual bool BeginCalibration(const PHD_Point &currentLocation);
     virtual bool UpdateCalibrationState(const PHD_Point &currentLocation);
@@ -210,7 +202,23 @@ public:
     void SetAssumeOrthogonal(bool val);
     bool IsAssumeOrthogonal(void) const;
     void HandleSanityCheckDialog();
-    void SetCalibrationWarning(Calibration_Issues etype, bool val);
+    void SetCalibrationWarning(CalibrationIssueType etype, bool val);
+
+    double GetDefGuidingDeclination(void);
+    virtual double GetGuidingDeclination(void);
+    virtual bool GetGuideRates(double *pRAGuideRate, double *pDecGuideRate);
+    virtual bool GetCoordinates(double *ra, double *dec, double *siderealTime);
+    virtual bool GetSiteLatLong(double *latitude, double *longitude);
+    virtual bool CanSlew(void);
+    virtual bool CanSlewAsync(void);
+    virtual bool SlewToCoordinates(double ra, double dec);
+    virtual bool SlewToCoordinatesAsync(double ra, double dec);
+    virtual void AbortSlew(void);
+    virtual bool CanCheckSlewing(void);
+    virtual bool Slewing(void);
+    virtual PierSide SideOfPier(void);
+    virtual bool CanReportPosition();                   // Can report RA, Dec, side-of-pier, etc.
+    virtual bool CanPulseGuide();                       // For ASCOM mounts
 
     virtual void StartDecDrift(void);
     virtual void EndDecDrift(void);

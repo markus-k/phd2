@@ -76,6 +76,17 @@ struct Calibration
     wxString timestamp;
 };
 
+enum CalibrationIssueType
+{
+    CI_None,
+    CI_Steps,
+    CI_Angle,
+    CI_Rates,
+    CI_Different
+};
+
+static const wxString CalibrationIssueString[] = { "None", "Steps", "Orthogonality", "Rates", "Difference" };
+
 struct CalibrationDetails
 {
     int focalLength;
@@ -88,6 +99,8 @@ struct CalibrationDetails
     std::vector <wxRealPoint> decSteps;
     int raStepCount;
     int decStepCount;
+    CalibrationIssueType lastIssue;
+    wxString origTimestamp;
 };
 
 enum MountMoveType
@@ -138,8 +151,8 @@ protected:
     GuideAlgorithm *m_pYGuideAlgorithm;
 
     wxString m_Name;
-
     BacklashComp *m_backlashComp;
+    GuideStepInfo m_lastStep;
 
     // Things related to the Advanced Config Dialog
 public:
@@ -199,6 +212,7 @@ public:
     virtual ~Mount(void);
 
     static const double DEC_COMP_LIMIT; // declination compensation limit
+    static const wxString& GetIssueString(CalibrationIssueType issue) { return CalibrationIssueString[issue]; };
 
     double yAngle(void);
     double yRate(void);
@@ -217,6 +231,8 @@ public:
 
     bool TransformMountCoordinatesToCameraCoordinates(const PHD_Point& mountVectorEndpoint,
                                                      PHD_Point& cameraVectorEndpoint);
+
+    void LogGuideStepInfo(void);
 
     GraphControlPane *GetXGuideAlgorithmControlPane(wxWindow *pParent);
     GraphControlPane *GetYGuideAlgorithmControlPane(wxWindow *pParent);
@@ -284,19 +300,6 @@ public:
 
     virtual void ClearHistory(void);
 
-    double GetDefGuidingDeclination(void);              // Don't allow overrides in subclass
-    virtual double GetGuidingDeclination(void);
-    virtual bool GetGuideRates(double *pRAGuideRate, double *pDecGuideRate);
-    virtual bool GetCoordinates(double *ra, double *dec, double *siderealTime);
-    virtual bool GetSiteLatLong(double *latitude, double *longitude);
-    virtual bool CanSlew(void);
-    virtual bool SlewToCoordinates(double ra, double dec);
-    virtual bool CanCheckSlewing(void);
-    virtual bool Slewing(void);
-    virtual PierSide SideOfPier(void);
-    virtual bool CanReportPosition();                   // Can report RA, Dec, side-of-pier, etc.
-    virtual bool CanPulseGuide();                       // For ASCOM mounts
-
     virtual wxString GetSettingsSummary();
     virtual wxString CalibrationSettingsSummary() { return wxEmptyString; }
 
@@ -305,6 +308,10 @@ public:
     virtual void StartDecDrift(void);
     virtual void EndDecDrift(void);
     virtual bool IsDecDrifting(void) const;
+
+protected:
+    bool MountIsCalibrated(void) const { return m_calibrated; }
+    const Calibration& MountCal(void) const { return m_cal; }
 };
 
 inline bool Mount::DecCompensationActive(void) const

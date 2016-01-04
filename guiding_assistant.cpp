@@ -174,6 +174,7 @@ struct GuidingAsstWin : public wxDialog
     wxStaticText *m_pae_msg;
     wxStaticText *m_backlash_msg;
     wxStaticText *m_exposure_msg;
+    wxStaticText *m_calibration_msg;
     double m_ra_val_rec;  // recommended value
     double m_dec_val_rec; // recommended value
     double m_min_exp_rec;
@@ -201,6 +202,7 @@ struct GuidingAsstWin : public wxDialog
     bool m_saveSecondaryMountEnabled;
     bool m_measurementsTaken;
     int  m_origSubFrames;
+    bool m_suspectCalibration;
 
     bool m_measuringBacklash;
 
@@ -397,6 +399,7 @@ GuidingAsstWin::GuidingAsstWin()
     m_backlash_msg = NULL;
     m_pae_msg = NULL;
     m_exposure_msg = NULL;
+    m_calibration_msg = NULL;
 
     m_recommend_group->Add(m_recommendgrid, wxSizerFlags(1).Expand());
     // Put the recommendation block at the bottom so it can be hidden/shown
@@ -505,10 +508,11 @@ static bool GetGridToolTip(int gridNum, const wxGridCellCoords& coords, wxString
         case 301: *s = _("Maximum sample-sample deflection seen in declination."); break;
         case 302: *s = _("Maximum peak-peak deflection seen in right ascension during sampling period."); break;
         case 303: *s = _("Estimated overall drift rate in right ascension."); break;
-        case 304: *s = _("Maximum drift rate in right ascension during sampling period; may be useful for setting exposure time."); break;
-        case 305: *s = _("Estimated overall drift rate in declination."); break;
-        case 306: *s = _("Estimate of declination backlash if backlash testing was completed successfully"); break;
-        case 307: *s = _("Estimate of polar alignment error. If the scope declination is unknown, the value displayed is a lower bound and the actual error may be larger."); break;
+        case 304: *s = _("Maximum drift rate in right ascension during sampling period."); break;
+        case 305: *s = _("Exposure time to keep maximum RA drift below the recommended min-move level."); break;
+        case 306: *s = _("Estimated overall drift rate in declination."); break;
+        case 307: *s = _("Estimate of declination backlash if backlash testing was completed successfully"); break;
+        case 308: *s = _("Estimate of polar alignment error. If the scope declination is unknown, the value displayed is a lower bound and the actual error may be larger."); break;
 
         default: return false;
     }
@@ -739,6 +743,9 @@ void GuidingAsstWin::MakeRecommendations()
     double const unit = 0.05;
     double rounded_rarms = std::max(round(rarms * multiplier_ra / unit + 0.5) * unit, 0.10);
     double rounded_decrms = std::max(round(decrms * multiplier_dec / unit + 0.5) * unit, 0.10);
+    CalibrationDetails calDetails;
+    TheScope()->GetCalibrationDetails(&calDetails);
+    m_suspectCalibration = calDetails.lastIssue != CI_None || m_backlashTool->GetBacklashExempted();
 
     if (pFrame->GetCameraPixelScale() >= 2.0)
     {
@@ -754,7 +761,6 @@ void GuidingAsstWin::MakeRecommendations()
     m_dec_val_rec = rounded_decrms;
     // Need to apply some constraints on the relative ratios because the ra_rms stat can be affected by large PE or drift
     m_ra_val_rec = wxMin(wxMax(m_ra_val_rec, 0.8 * m_dec_val_rec), 1.2 * m_dec_val_rec);        // within 20% of dec recommendation
-
 
     LogResults();               // Dump the raw statistics
   
@@ -780,6 +786,20 @@ void GuidingAsstWin::MakeRecommendations()
         m_exposure_msg->SetLabel(msg);
     Debug.Write(wxString::Format("Recommendation: %s\n", m_exposure_msg->GetLabelText()));
 
+    if (m_suspectCalibration)
+    {
+        wxString msg = _("Consider re-doing your calibration ");
+        if (calDetails.lastIssue != CI_None)
+            msg += _("(Prior alert)");
+        else
+            msg += _("(Backlash clearing)");
+        if (!m_calibration_msg)
+            m_calibration_msg = AddRecommendationEntry(SizedMsg(msg));
+        else
+            m_calibration_msg->SetLabel(SizedMsg(msg));
+        Debug.Write(wxString::Format("Recommendation: %s\n", m_calibration_msg->GetLabelText()));
+    }
+
     if ((sumSNR / (double)m_statsRA.n) < 5.0)
     {
         wxString msg(_("Consider using a brighter star for the test or increasing the exposure time"));
@@ -801,10 +821,10 @@ void GuidingAsstWin::MakeRecommendations()
             _("Polar alignment error > 5 arc-min; that could probably be improved.") :
             _("Polar alignment error > 10 arc-min; try using the Drift Align tool to improve alignment.");
         if (!m_pae_msg)
-            m_pae_msg = AddRecommendationEntry(msg);
+            m_pae_msg = AddRecommendationEntry(SizedMsg(msg));
         else
         {
-            m_pae_msg->SetLabel(msg);
+            m_pae_msg->SetLabel(SizedMsg(msg));
             m_pae_msg->Wrap(400);
         }
         Debug.Write(wxString::Format("Recommendation: %s\n", msg));
@@ -1060,8 +1080,8 @@ void GuidingAsstWin::FillResultCell(wxGrid *pGrid, wxGridCellCoords loc, double 
 
 void GuidingAsstWin::UpdateInfo(const GuideStepInfo& info)
 {
-    double ra = info.mountOffset->X;
-    double dec = info.mountOffset->Y;
+    double ra = info.mountOffset.X;
+    double dec = info.mountOffset.Y;
     double prevRAlpf = m_statsRA.lpf;
 
     m_statsRA.AddSample(ra);
@@ -1070,7 +1090,7 @@ void GuidingAsstWin::UpdateInfo(const GuideStepInfo& info)
     if (m_statsRA.n == 1)
     {
         minRA = maxRA = ra;
-        m_startPos = *info.mountOffset;
+        m_startPos = info.mountOffset;
         maxRateRA = 0.0;
     }
     else
@@ -1143,7 +1163,7 @@ void GuidingAsstWin::UpdateInfo(const GuideStepInfo& info)
     FillResultCell(m_othergrid, m_ra_drift_loc, raDriftRate, raDriftRate * pxscale, PXPERMIN, ARCSECPERMIN);
     FillResultCell(m_othergrid, m_ra_peak_drift_loc, maxRateRA, maxRateRA * pxscale, PXPERSEC, ARCSECPERSEC);
     m_othergrid->SetCellValue(m_ra_drift_exp_loc, maxRateRA <= 0.0 ? " " : 
-        wxString::Format("%6.1f %s ",  rarms / maxRateRA, SEC));
+        wxString::Format("%6.1f %s ",  1.3 * rarms / maxRateRA, SEC));
     FillResultCell(m_othergrid, m_dec_drift_loc, decDriftRate, decDriftRate * pxscale, PXPERMIN, ARCSECPERMIN);
     m_othergrid->SetCellValue(m_pae_loc, wxString::Format("%s %.1f %s", declination == 0.0 ? "> " : "", alignmentError, ARCMIN));
 }

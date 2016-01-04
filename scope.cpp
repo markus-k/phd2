@@ -157,7 +157,10 @@ bool Scope::SetMaxDecDuration(int maxDecDuration)
             throw ERROR_INFO("maxDecDuration < 0");
         }
 
+        if (m_maxDecDuration != maxDecDuration)
+            GuideLog.SetGuidingParam("Dec Max Duration", maxDecDuration);
         m_maxDecDuration = maxDecDuration;
+
     }
     catch (const wxString& Msg)
     {
@@ -187,7 +190,10 @@ bool Scope::SetMaxRaDuration(double maxRaDuration)
             throw ERROR_INFO("maxRaDuration < 0");
         }
 
+        if (m_maxRaDuration != maxRaDuration)
+            GuideLog.SetGuidingParam("RA Max Duration", maxRaDuration);
         m_maxRaDuration =  maxRaDuration;
+
     }
     catch (const wxString& Msg)
     {
@@ -224,13 +230,22 @@ bool Scope::SetDecGuideMode(int decGuideMode)
                 break;
         }
 
-        m_decGuideMode = (DEC_GUIDE_MODE)decGuideMode;
+        if (m_decGuideMode != decGuideMode)
+        {
+            const char *dec_modes[] = {
+              "Off", "Auto", "North", "South"
+            };
+
+            GuideLog.SetGuidingParam("Dec Guide Mode", dec_modes[decGuideMode]);
+        }
+
+        m_decGuideMode = (DEC_GUIDE_MODE) decGuideMode;
     }
     catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
-        m_decGuideMode = (DEC_GUIDE_MODE)DefaultDecGuideMode;
+        m_decGuideMode = (DEC_GUIDE_MODE) DefaultDecGuideMode;
     }
 
     pConfig->Profile.SetInt("/scope/DecGuideMode", m_decGuideMode);
@@ -663,7 +678,7 @@ Mount::MOVE_RESULT Scope::Move(GUIDE_DIRECTION direction, int duration, MountMov
     return result;
 }
 
-static wxString CalibrationWarningKey(Calibration_Issues etype)
+static wxString CalibrationWarningKey(CalibrationIssueType etype)
 {
     wxString qual;
     switch (etype)
@@ -688,7 +703,8 @@ static wxString CalibrationWarningKey(Calibration_Issues etype)
     wxString rtn = wxString::Format("/Confirm/%d/CalWarning_%s", pConfig->GetCurrentProfileId(), qual);
     return rtn;
 }
-void Scope::SetCalibrationWarning(Calibration_Issues etype, bool val)
+
+void Scope::SetCalibrationWarning(CalibrationIssueType etype, bool val)
 {
     pConfig->Global.SetBoolean(CalibrationWarningKey(etype), val);
 }
@@ -784,6 +800,7 @@ void Scope::SanityCheckCalibration(const Calibration& oldCal, const CalibrationD
     {
         wxString alertMsg;
 
+        FlagCalibrationIssue(newDetails, m_lastCalibrationIssue);
         switch (m_lastCalibrationIssue)
         {
         case CI_Steps:
@@ -843,6 +860,7 @@ bool Scope::BeginCalibration(const PHD_Point& currentLocation)
         m_calibrationState = CALIBRATION_STATE_GO_WEST;
         m_calibrationDetails.raSteps.clear();
         m_calibrationDetails.decSteps.clear();
+        m_calibrationDetails.lastIssue = CI_None;
     }
     catch (wxString Msg)
     {
@@ -875,6 +893,14 @@ void Scope::SetCalibrationDetails(const CalibrationDetails& calDetails, double x
     m_calibrationDetails.imageScale = pFrame->GetCameraPixelScale();
     m_calibrationDetails.orthoError = degrees(fabs(fabs(norm_angle(xAngle - yAngle)) - M_PI / 2.));         // Delta from the nearest multiple of 90 degrees
     m_calibrationDetails.origBinning = binning;
+    m_calibrationDetails.origTimestamp = wxDateTime::Now().Format();
+    Mount::SetCalibrationDetails(m_calibrationDetails);
+}
+
+void Scope::FlagCalibrationIssue(const CalibrationDetails& calDetails, CalibrationIssueType issue)
+{
+    m_calibrationDetails = calDetails;
+    m_calibrationDetails.lastIssue = issue;
     Mount::SetCalibrationDetails(m_calibrationDetails);
 }
 
@@ -1368,16 +1394,117 @@ bool Scope::UpdateCalibrationState(const PHD_Point& currentLocation)
     return bError;
 }
 
+// Return a default guiding declination that will "do no harm" in terms of RA rate adjustments - either the Dec
+// where the calibration was done or zero
+double Scope::GetDefGuidingDeclination()
+{
+    return MountIsCalibrated() ? MountCal().declination : 0.0;
+}
+
+// Get a value of declination, in radians, that can be used for adjusting the RA guide rate.  Normally, this will be gotten
+// from the ASCOM scope subclass, but it could also come from the 'aux' mount connection.  If this method in the base class is
+// called, we don't have any pointing info, so return a default that will do no harm.
+// Don't force clients to catch exceptions.  Callers who want the traditional ASCOM
+// dec value should use GetCoordinates().
+double Scope::GetGuidingDeclination(void)
+{
+    return GetDefGuidingDeclination();
+}
+
+// Baseline implementations for non-ASCOM subclasses.  Methods will
+// return a sensible default or an error (true)
+bool Scope::GetGuideRates(double *pRAGuideRate, double *pDecGuideRate)
+{
+    return true; // error, not implemented
+}
+
+bool Scope::GetCoordinates(double *ra, double *dec, double *siderealTime)
+{
+    return true; // error
+}
+
+bool Scope::GetSiteLatLong(double *latitude, double *longitude)
+{
+    return true; // error
+}
+
+bool Scope::CanSlew(void)
+{
+    return false;
+}
+
+bool Scope::CanSlewAsync(void)
+{
+    return false;
+}
+
+bool Scope::CanReportPosition()
+{
+    return false;
+}
+
+bool Scope::CanPulseGuide()
+{
+    return false;
+}
+
+bool Scope::SlewToCoordinates(double ra, double dec)
+{
+    return true; // error
+}
+
+bool Scope::SlewToCoordinatesAsync(double ra, double dec)
+{
+    return true; // error
+}
+
+void Scope::AbortSlew(void)
+{
+}
+
+bool Scope::CanCheckSlewing(void)
+{
+    return false;
+}
+
+bool Scope::Slewing(void)
+{
+    return false;
+}
+
+PierSide Scope::SideOfPier(void)
+{
+    return PIER_SIDE_UNKNOWN;
+}
+
 wxString Scope::GetSettingsSummary()
 {
+    wxString rtnVal;
+    Calibration calInfo;
+    CalibrationDetails calDetails;
+    GetLastCalibrationParams(&calInfo);
+    GetCalibrationDetails(&calDetails);
+
     // return a loggable summary of current mount settings
-    return Mount::GetSettingsSummary() +
-        wxString::Format("Calibration step = phdlab_placeholder, Max RA duration = %d, Max DEC duration = %d, DEC guide mode = %s\n",
+    rtnVal = Mount::GetSettingsSummary() +
+        wxString::Format
+            ("Calibration step = phdlab_placeholder, Max RA duration = %d, Max DEC duration = %d, DEC guide mode = %s\n",
             GetMaxRaDuration(),
             GetMaxDecDuration(),
             GetDecGuideMode() == DEC_NONE ? "Off" : GetDecGuideMode() == DEC_AUTO ? "Auto" :
             GetDecGuideMode() == DEC_NORTH ? "North" : "South"
-        );
+            );
+    if (calDetails.raGuideSpeed != -1.0)
+    {
+        rtnVal += wxString::Format
+            (
+            "RA Guide Speed = %0.1f a-s/s, Dec Guide Speed = %0.1f a-s/s, ", 3600.0*calDetails.raGuideSpeed, 3600.0*calDetails.decGuideSpeed
+            );
+    }
+    else
+        rtnVal += "RA Guide Speed = Unknown, Dec Guide Speed = Unknown, ";
+    rtnVal += wxString::Format("Cal Dec = %0.1f, Last Cal Issue = %s, Timestamp = %s\n", degrees(calInfo.declination), Mount::GetIssueString(calDetails.lastIssue), calDetails.origTimestamp);
+    return rtnVal;
 }
 
 wxString Scope::CalibrationSettingsSummary()
@@ -1492,7 +1619,7 @@ ScopeConfigDialogCtrlSet::ScopeConfigDialogCtrlSet(wxWindow *pParent, Scope *pSc
         AddLabeledCtrl(CtrlMap, AD_szMaxDecAmt, _("Max Dec duration"), m_pMaxDecDuration, _("Longest length of pulse to send in declination\nDefault = 2500 ms.  Increase if drift is fast."));
 
         wxString dec_choices[] = {
-            _("Off"), _("Auto"), _("North"), _("South")
+          _("Off"), _("Auto"), _("North"), _("South")
         };
         width = StringArrayWidth(dec_choices, WXSIZEOF(dec_choices));
         m_pDecMode = new wxChoice(GetParentWindow(AD_szDecGuideMode), wxID_ANY, wxPoint(-1, -1),
