@@ -33,31 +33,10 @@
  * Edgar Klenske <edgar.klenske@tuebingen.mpg.de>
  */
 
-#include <Eigen/Dense>
-#include <vector>
-#include <cstdint>
-#include <iostream>
-
-
 #include "covariance_functions.h"
 #include "math_tools.h"
 
 namespace covariance_functions {
-MatrixStdVecPair covariance(const Eigen::VectorXd& params,
-                            const Eigen::MatrixXd& x1,
-                            const Eigen::MatrixXd& x2) {
-  covariance_functions::PeriodicSquareExponential covFuncPSE(params.head(4));
-  covariance_functions::DiracDelta covFuncD(params.tail(1));
-  MatrixStdVecPair cov1 = covFuncPSE.evaluate(x1.col(0),x2.col(0));
-
-  MatrixStdVecPair cov2 = covFuncD.evaluate(x1.col(0), x2.col(0));
-
-  Eigen::MatrixXd covariance = cov1.first + cov2.first;
-  std::vector< Eigen::MatrixXd > &derivative = cov1.second;
-  derivative.push_back(*cov2.second.begin());
-
-  return std::make_pair(covariance, derivative);
-}
 
 /* SquareExponentialPeriodic */
 SquareExponentialPeriodic::SquareExponentialPeriodic() :
@@ -286,54 +265,6 @@ int PeriodicSquareExponential2::getParameterCount() const {
 }
 
 int PeriodicSquareExponential2::getExtraParameterCount() const {
-  return this->extraParameters.rows();
-}
-
-DiracDelta::DiracDelta(const Eigen::VectorXd& hyperParameters) {
-  this->hyperParameters = hyperParameters;
-}
-
-MatrixStdVecPair DiracDelta::evaluate(const Eigen::VectorXd& x1,
-                                      const Eigen::VectorXd& x2) {
-  double sigma2 = exp(hyperParameters[0] * 2);
-
-  const Eigen::VectorXd::ConstColXpr x1Col = x1.col(0);
-  const Eigen::VectorXd::ConstColXpr x2Col = x2.col(0);
-  Eigen::MatrixXd covariance(x1Col.size(), x2Col.size());
-
-  for (int rows = 0; rows < covariance.rows(); rows++) {
-    for (int cols = 0; cols < covariance.cols(); cols++) {
-      covariance(rows, cols) = x1Col(rows) == x2Col(cols) ? sigma2 : 0;
-    }
-  }
-
-  std::vector<Eigen::MatrixXd> derivative(1);
-  derivative[0] = 2 * covariance;
-
-  return std::make_pair(covariance, derivative);
-}
-
-void DiracDelta::setParameters(const Eigen::VectorXd& params) {
-  this->hyperParameters = params;
-}
-
-void DiracDelta::setExtraParameters(const Eigen::VectorXd& params) {
-  this->extraParameters = params;
-}
-
-const Eigen::VectorXd& DiracDelta::getParameters() const {
-  return this->hyperParameters;
-}
-
-const Eigen::VectorXd& DiracDelta::getExtraParameters() const {
-  return this->extraParameters;
-}
-
-int DiracDelta::getParameterCount() const {
-  return this->hyperParameters.rows();
-}
-
-int DiracDelta::getExtraParameterCount() const {
   return this->extraParameters.rows();
 }
 

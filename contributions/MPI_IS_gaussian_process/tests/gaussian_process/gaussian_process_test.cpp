@@ -258,19 +258,6 @@ TEST_F(GPTest, squareDistanceTest)
     EXPECT_EQ(math_tools::squareDistance(a, b), sqdistab);
 }
 
-TEST_F(GPTest, CovarianceDiracTest)
-{
-    Eigen::MatrixXd m = Eigen::VectorXd::Random(6);
-    Eigen::VectorXd hyperparameter(1);
-    hyperparameter << 0; // 0 = log(1) = unit variance
-
-    covariance_functions::DiracDelta covDirac(hyperparameter);
-    covariance_functions::MatrixStdVecPair result1 = covDirac.evaluate(m, m);
-    Eigen::MatrixXd identity = Eigen::MatrixXd::Identity(m.rows(), m.rows());
-    EXPECT_EQ(result1.first, identity);
-    EXPECT_EQ(result1.second[0], 2 * identity);
-}
-
 TEST_F(GPTest, CovarianceTest2)
 {
     Eigen::Vector4d hyperParams;

@@ -49,10 +49,7 @@
 
 namespace covariance_functions {
 
-typedef std::pair<Eigen::MatrixXd, Eigen::MatrixXd> MatrixPair;
-typedef std::pair<
-            Eigen::MatrixXd,
-            std::vector< Eigen::MatrixXd> > MatrixStdVecPair;
+typedef std::pair< Eigen::MatrixXd, std::vector< Eigen::MatrixXd> > MatrixStdVecPair;
 
 enum paramIndices { LengthScalePIndex,
                     PeriodLengthPIndex,
@@ -271,58 +268,6 @@ public:
     virtual CovFunc* clone() const {
         return new PeriodicSquareExponential2(*this);
     }
-};
-
-/*
- * The DiracDelta covariance function is essentially a noise kernel where only
- * identical input values are correlated. Everything else is independent.
- *
- */
-class DiracDelta : public CovFunc {
-private:
-  Eigen::VectorXd hyperParameters;
-  Eigen::VectorXd extraParameters;
-
-public:
-  explicit DiracDelta(const Eigen::VectorXd& hyperParameters);
-
-  /**
-   Covariance function
-
-   @param x1, x2
-   Two matrices
-
-   @result
-   A pair consisting of the covariance matrix and the derivative
-   of the matrix
-   */
-  covariance_functions::MatrixStdVecPair evaluate(const Eigen::VectorXd& x1,
-                                                  const Eigen::VectorXd& x2);
-
-  /**
-   * Method to set the hyper-parameters.
-   */
-  void setParameters(const Eigen::VectorXd& params);
-  void setExtraParameters(const Eigen::VectorXd& params);
-
-  /**
-   * Returns the hyper-parameters.
-   */
-  const Eigen::VectorXd& getParameters() const;
-  const Eigen::VectorXd& getExtraParameters() const;
-
-  /**
-   * Returns the number of hyper-parameters.
-   */
-  int getParameterCount() const;
-  int getExtraParameterCount() const;
-
-  /**
-   * Produces a clone to be able to copy the object.
-   */
-  virtual CovFunc* clone() const {
-    return new DiracDelta(*this);
-  }
 };
 }  // namespace covariance_functions
 #endif  // ifndef COVARIANCE_FUNCTIONS_H
