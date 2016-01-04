@@ -204,10 +204,10 @@ public:
       m_pSE0KLengthScale->SetValue(hyperparameters[1]);
       m_pSE0KSignalVariance->SetValue(hyperparameters[2]);
       m_pPKLengthScale->SetValue(hyperparameters[3]);
-      m_pPKPeriodLength->SetValue(hyperparameters[4]);
-      m_pPKSignalVariance->SetValue(hyperparameters[5]);
-      m_pSE1KLengthScale->SetValue(hyperparameters[6]);
-      m_pSE1KSignalVariance->SetValue(hyperparameters[7]);
+      m_pPKSignalVariance->SetValue(hyperparameters[4]);
+      m_pSE1KLengthScale->SetValue(hyperparameters[5]);
+      m_pSE1KSignalVariance->SetValue(hyperparameters[6]);
+      m_pPKPeriodLength->SetValue(hyperparameters[7]);
 
       m_pMixingParameter->SetValue(m_pGuideAlgorithm->GetMixingParameter());
 
@@ -228,10 +228,10 @@ public:
       hyperparameters[1] = m_pSE0KLengthScale->GetValue();
       hyperparameters[2] = m_pSE0KSignalVariance->GetValue();
       hyperparameters[3] = m_pPKLengthScale->GetValue();
-      hyperparameters[4] = m_pPKPeriodLength->GetValue();
-      hyperparameters[5] = m_pPKSignalVariance->GetValue();
-      hyperparameters[6] = m_pSE1KLengthScale->GetValue();
-      hyperparameters[7] = m_pSE1KSignalVariance->GetValue();
+      hyperparameters[4] = m_pPKSignalVariance->GetValue();
+      hyperparameters[5] = m_pSE1KLengthScale->GetValue();
+      hyperparameters[6] = m_pSE1KSignalVariance->GetValue();
+      hyperparameters[7] = m_pPKPeriodLength->GetValue();
 
       m_pGuideAlgorithm->SetGPHyperparameters(hyperparameters);
       m_pGuideAlgorithm->SetMixingParameter(m_pMixingParameter->GetValue());
@@ -365,10 +365,10 @@ GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
     v_hyperparameters[1] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_se0_kern",  DefaultLengthScaleSE0Ker);
     v_hyperparameters[2] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_se0_kern",        DefaultSignalVarianceSE0Ker);
     v_hyperparameters[3] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_per_kern",  DefaultLengthScalePerKer);
-    v_hyperparameters[4] = pConfig->Profile.GetDouble(configPath + "/gp_period_per_kern",        DefaultPeriodLengthPerKer);
-    v_hyperparameters[5] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_per_kern",        DefaultSignalVariancePerKer);
-    v_hyperparameters[6] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_se1_kern",  DefaultLengthScaleSE1Ker);
-    v_hyperparameters[7] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_se1_kern",        DefaultSignalVarianceSE1Ker);
+    v_hyperparameters[4] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_per_kern",        DefaultSignalVariancePerKer);
+    v_hyperparameters[5] = pConfig->Profile.GetDouble(configPath + "/gp_length_scale_se1_kern",  DefaultLengthScaleSE1Ker);
+    v_hyperparameters[6] = pConfig->Profile.GetDouble(configPath + "/gp_sigvar_se1_kern",        DefaultSignalVarianceSE1Ker);
+    v_hyperparameters[7] = pConfig->Profile.GetDouble(configPath + "/gp_period_per_kern",        DefaultPeriodLengthPerKer);
 
     SetGPHyperparameters(v_hyperparameters);
 
@@ -377,23 +377,6 @@ GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
 
     bool optimize_sigma = pConfig->Profile.GetBoolean(configPath + "/gp_optimize_sigma", DefaultOptimizeNoise);
     SetBoolOptimizeSigma(optimize_sigma);
-
-    // set masking, so that we only optimize the period length. The rest is fixed or estimated otherwise.
-    Eigen::VectorXi mask(8);
-    mask << 0, 0, 1, 0, 0, 0, 0, 0;
-    parameters->gp_.setOptimizationMask(mask);
-
-    // set a strong logistic prior (soft box) to prevent the period length from being too small.
-    Eigen::VectorXd prior_parameters(2);
-    prior_parameters << 50, 0.1;
-    parameter_priors::LogisticPrior periodicity_prior(prior_parameters);
-    parameters->gp_.setHyperPrior(periodicity_prior, 2);
-
-    // set a weak gamma prior as well, to make the optimization more well-behaved.
-    Eigen::VectorXd prior_parameters2(2);
-    prior_parameters2 << 300, 100;
-    parameter_priors::GammaPrior periodicity_prior2(prior_parameters2);
-    parameters->gp_.setHyperPrior(periodicity_prior2, 2);
 
     // enable the explicit basis function for the linear drift
     parameters->gp_.enableExplicitTrend();
@@ -566,29 +549,10 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
 
     pConfig->Profile.SetDouble(GetConfigPath() + "/gp_length_scale_per_kern", hyperparameters_eig(3));
 
-
-    // period length periodic kernel
-    try
-    {
-        if (hyperparameters_eig(4) < 0)
-        {
-            throw ERROR_INFO("invalid period length for periodic kernel");
-        }
-    }
-    catch (wxString Msg)
-    {
-        POSSIBLY_UNUSED(Msg);
-        error = true;
-        hyperparameters_eig(4) = DefaultPeriodLengthPerKer;
-    }
-
-    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_period_per_kern", hyperparameters_eig(4));
-
-
     // signal variance periodic kernel
     try
     {
-        if (hyperparameters_eig(5) < 0)
+        if (hyperparameters_eig(4) < 0)
         {
             throw ERROR_INFO("invalid signal variance for the periodic kernel");
         }
@@ -597,16 +561,16 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        hyperparameters_eig(5) = DefaultSignalVariancePerKer;
+        hyperparameters_eig(4) = DefaultSignalVariancePerKer;
     }
 
-    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_sigvar_per_kern", hyperparameters_eig(5));
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_sigvar_per_kern", hyperparameters_eig(4));
 
 
     // length scale long SE kernel
     try
     {
-        if (hyperparameters_eig(6) < 0)
+        if (hyperparameters_eig(5) < 0)
         {
             throw ERROR_INFO("invalid length scale for SE kernel");
         }
@@ -615,15 +579,15 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        hyperparameters_eig(6) = DefaultLengthScaleSE1Ker;
+        hyperparameters_eig(5) = DefaultLengthScaleSE1Ker;
     }
 
-    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_length_scale_se1_kern", hyperparameters_eig(6));
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_length_scale_se1_kern", hyperparameters_eig(5));
 
     // signal variance SE kernel
     try
     {
-        if (hyperparameters_eig(7) < 0)
+        if (hyperparameters_eig(6) < 0)
         {
             throw ERROR_INFO("invalid signal variance for the SE kernel");
         }
@@ -632,10 +596,27 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        hyperparameters_eig(7) = DefaultSignalVarianceSE1Ker;
+        hyperparameters_eig(6) = DefaultSignalVarianceSE1Ker;
     }
 
-    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_sigvar_se1_kern", hyperparameters_eig(7));
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_sigvar_se1_kern", hyperparameters_eig(6));
+
+    // period length periodic kernel
+    try
+    {
+      if (hyperparameters_eig(7) < 0)
+      {
+        throw ERROR_INFO("invalid period length for periodic kernel");
+      }
+    }
+    catch (wxString Msg)
+    {
+      POSSIBLY_UNUSED(Msg);
+      error = true;
+      hyperparameters_eig(7) = DefaultPeriodLengthPerKer;
+    }
+
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_period_per_kern", hyperparameters_eig(7));
 
     // note that the GP class works in log space! Thus, we have to convert the parameters to log.
     parameters->gp_.setHyperParameters(hyperparameters_eig.array().log());
@@ -862,7 +843,7 @@ double GuideGaussianProcess::PredictGearError()
       double period_length = 1 / frequencies(maxIndex);
 
       Eigen::VectorXd optim = parameters->gp_.getHyperParameters();
-      optim[4] = std::log(period_length); // parameters are stored in log space
+      optim[7] = std::log(period_length); // parameters are stored in log space
       parameters->gp_.setHyperParameters(optim);
 
       std::ofstream outfile;
@@ -903,7 +884,7 @@ double GuideGaussianProcess::PredictGearError()
 
 double GuideGaussianProcess::result(double input)
 {
-    
+
     HandleMeasurements(input);
     HandleTimestamps();
 
