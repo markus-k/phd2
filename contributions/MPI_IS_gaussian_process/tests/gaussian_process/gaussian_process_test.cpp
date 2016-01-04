@@ -359,15 +359,19 @@ TEST_F(GPTest, covariance_derivative_test) {
 }
 
 TEST_F(GPTest, CovarianceTest3) {
-    Eigen::Matrix<double,7,1> hyperParams;
-    hyperParams << 10, 1, 1, 80, 1, 100, 1;
+    Eigen::Matrix<double,6,1> hyperParams;
+    hyperParams << 10, 1, 1, 1, 100, 1;
     hyperParams = hyperParams.array().log();
+
+    Eigen::VectorXd periodLength(1);
+    periodLength << std::log(80);
 
     Eigen::VectorXd locations(5), X(3), Y(3);
     locations << 0, 50, 100, 150, 200;
     X << 0, 100, 200;
 
     covariance_functions::PeriodicSquareExponential2 covFunc(hyperParams);
+    covFunc.setExtraParameters(periodLength);
 
     Eigen::MatrixXd kxx_matlab(5, 5);
     kxx_matlab <<
@@ -415,9 +419,12 @@ TEST_F(GPTest, CovarianceTest3) {
 TEST_F(GPTest, CovarianceDerivativeTest3) {
     int N = 10; // number of tests
     double eps = 1e-6;
-    Eigen::Matrix<double,7,1> hyperParams;
-    hyperParams << 10, 1, 1, 80, 1, 100, 1;
+    Eigen::Matrix<double,6,1> hyperParams;
+    hyperParams << 10, 1, 1, 1, 100, 1;
     hyperParams = hyperParams.array().log();
+
+    Eigen::VectorXd periodLength(1);
+    periodLength << std::log(80);
 
     for(int h = 0; h < hyperParams.rows(); ++h) {
         Eigen::VectorXd hyper_plus(hyperParams);
@@ -427,6 +434,7 @@ TEST_F(GPTest, CovarianceDerivativeTest3) {
         hyper_minus[h] -= eps;
 
         covariance_functions::PeriodicSquareExponential2 covFunc(hyperParams);
+        covFunc.setExtraParameters(periodLength);
 
         Eigen::ArrayXXd cov_plus(5,5);
         Eigen::ArrayXXd cov_minus(5,5);
