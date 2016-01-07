@@ -232,6 +232,59 @@ void GP::infer(const Eigen::VectorXd& data_loc,
     infer(); // updates the Gram matrix and its Cholesky decomposition
 }
 
+void GP::inferSD(const Eigen::VectorXd& data_loc,
+             const Eigen::VectorXd& data_out,
+             int n, double pred_loc /*= std::numeric_limits<double>::quiet_NaN()*/)
+{
+    Eigen::VectorXd covariance;
+    covariance_functions::MatrixStdVecPair cov_result;
+
+    // use the last datapoint as prediction reference, if noone is given.
+    if (std::isnan(pred_loc))
+    {
+        cov_result = covFunc_->evaluate(data_loc, data_loc.tail(1));
+    }
+    else
+    {
+        Eigen::VectorXd pred_vec(1);
+        pred_vec << pred_loc;
+        cov_result = covFunc_->evaluate(data_loc, pred_vec);
+    }
+
+    covariance = cov_result.first;
+
+    std::vector<int> index(covariance.size(), 0);
+    for (int i = 0 ; i != index.size() ; i++) {
+        index[i] = i;
+    }
+
+    // sort indices with respect to covariance value
+    std::sort(index.begin(), index.end(),
+         [&](const int& a, const int& b) {
+             return (covariance[a] > covariance[b]);
+         }
+    );
+
+    if (n < data_loc.rows()) {
+        double loc_arr[n];
+        double out_arr[n];
+        for (int i = 0; i < n; ++i)
+        {
+            loc_arr[i] = data_loc[index[i]];
+            out_arr[i] = data_out[index[i]];
+        }
+
+        data_loc_ = Eigen::Map<Eigen::VectorXd>(loc_arr,n,1);
+        data_out_ = Eigen::Map<Eigen::VectorXd>(out_arr,n,1);
+    }
+    else
+    {
+        data_loc_ = data_loc;
+        data_out_ = data_out;
+    }
+    infer();
+}
+
 void GP::clear()
 {
     gram_matrix_ = Eigen::MatrixXd();
