@@ -234,7 +234,7 @@ void GP::infer(const Eigen::VectorXd& data_loc,
 
 void GP::inferSD(const Eigen::VectorXd& data_loc,
              const Eigen::VectorXd& data_out,
-             int n, double pred_loc /*= std::numeric_limits<double>::quiet_NaN()*/)
+             const int n, const double pred_loc /*= std::numeric_limits<double>::quiet_NaN()*/)
 {
     Eigen::VectorXd covariance;
     covariance_functions::MatrixStdVecPair cov_result;
@@ -266,16 +266,16 @@ void GP::inferSD(const Eigen::VectorXd& data_loc,
     );
 
     if (n < data_loc.rows()) {
-        double loc_arr[n];
-        double out_arr[n];
+        std::vector<double> loc_arr(n);
+        std::vector<double> out_arr(n);
         for (int i = 0; i < n; ++i)
         {
             loc_arr[i] = data_loc[index[i]];
             out_arr[i] = data_out[index[i]];
         }
 
-        data_loc_ = Eigen::Map<Eigen::VectorXd>(loc_arr,n,1);
-        data_out_ = Eigen::Map<Eigen::VectorXd>(out_arr,n,1);
+        data_loc_ = Eigen::Map<Eigen::VectorXd>(loc_arr.data(),n,1);
+        data_out_ = Eigen::Map<Eigen::VectorXd>(out_arr.data(),n,1);
     }
     else
     {
