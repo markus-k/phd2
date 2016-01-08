@@ -275,7 +275,7 @@ struct GuideGaussianProcess::gp_guide_parameters
     GP gp_;
 
     gp_guide_parameters() :
-      circular_buffer_parameters(512),
+      circular_buffer_parameters(512), // TODO: make this magic number configurable
       timer_(),
       control_signal_(0.0),
       last_timestamp_(0.0),
@@ -831,7 +831,12 @@ double GuideGaussianProcess::PredictGearError()
       Eigen::ArrayXd amplitudes = result.first;
       Eigen::ArrayXd frequencies = result.second;
 
-      double dt = (timestamps(timestamps.rows()-1) - timestamps(0))/timestamps.rows();
+      double dt = (timestamps(timestamps.rows()-1) - timestamps(1))/timestamps.rows();
+      if (dt < 0)
+      {
+          Debug.AddLine("timestamps: last: %f, first: %f, rows: %f", timestamps(timestamps.rows() - 1), timestamps(1), timestamps.rows());
+      }
+      assert(dt >= 0);
       frequencies /= dt; // correct for the average time step width
 
       Eigen::ArrayXd periods = 1/frequencies.array();
@@ -869,7 +874,7 @@ double GuideGaussianProcess::PredictGearError()
 
     begin = std::clock();
     // inference of the GP with this new points
-    parameters->gp_.inferSD(timestamps, gear_error, 256); // TODO: make magic number configurable
+    parameters->gp_.inferSD(timestamps, gear_error, 128); // TODO: make magic number configurable
 
     // prediction for the next location
     Eigen::VectorXd next_location(2);
