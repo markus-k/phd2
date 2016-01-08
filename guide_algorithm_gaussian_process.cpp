@@ -854,7 +854,7 @@ double GuideGaussianProcess::PredictGearError()
 
       end = std::clock();
       time_fft = double(end - begin) / CLOCKS_PER_SEC;
-      
+
 
 #if GP_DEBUG_FILE_
       std::ofstream outfile;

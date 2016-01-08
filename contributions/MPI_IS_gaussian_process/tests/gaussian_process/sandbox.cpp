@@ -161,14 +161,18 @@ int main(int argc, char** argv)
     meas += ra_raw_dist;
 
     Eigen::VectorXd hyper_parameters(7);
-    hyper_parameters << 5, 1, 0.5, 1, 1000, 1, 500;
+    hyper_parameters << 100, 1, 0.5, 1, 5, 1, 500;
 
     covariance_functions::PeriodicSquareExponential2 covariance_function(hyper_parameters.array().log());
     covariance_function.setExtraParameters(hyper_parameters.tail(1).array().log());
 
+    covariance_functions::PeriodicSquareExponential output_covariance_function(hyper_parameters.array().log());
+    output_covariance_function.setExtraParameters(hyper_parameters.tail(1).array().log());
+
     GP gp(1e0, covariance_function);
 
     gp.enableExplicitTrend();
+    gp.enableOutputProjection(output_covariance_function);
 
     begin = std::clock();
     gp.infer(time, meas);
@@ -176,11 +180,12 @@ int main(int argc, char** argv)
     elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
     std::cout << "time for infer: " << elapsed_secs << " s." << std::endl;
 
-    begin = std::clock();
-    gp.inferSD(time, meas, 256);
-    end = std::clock();
-    elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-    std::cout << "time for inferSD: " << elapsed_secs << " s." << std::endl;
+//     begin = std::clock();
+//     gp.inferSD(time, meas, 256);
+//     end = std::clock();
+//     elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+//     std::cout << "time for inferSD: " << elapsed_secs << " s." << std::endl;
+
 
     int M = 512; // number of prediction points
     Eigen::VectorXd locations = Eigen::VectorXd::LinSpaced(M, 0, time.maxCoeff() + 1000);
