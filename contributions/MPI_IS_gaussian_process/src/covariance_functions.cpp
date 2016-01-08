@@ -39,133 +39,53 @@
 namespace covariance_functions
 {
 
-    /* SquareExponentialPeriodic */
-    SquareExponentialPeriodic::SquareExponentialPeriodic() :
-        hyperParameters(Eigen::VectorXd::Zero(5)) { }
-
-    SquareExponentialPeriodic::SquareExponentialPeriodic(const Eigen::VectorXd& hyperParameters_) :
-        hyperParameters(hyperParameters_) { }
-
-    MatrixStdVecPair SquareExponentialPeriodic::evaluate(
-        const Eigen::VectorXd& x,
-        const Eigen::VectorXd& y)
-    {
-        double lsP  = exp(hyperParameters(LengthScalePIndex));
-        double plP  = exp(hyperParameters(PeriodLengthPIndex));
-        // signal variance is squared
-        double svP  = exp(2 * hyperParameters(SignalVariancePIndex));
-        double lsSE = exp(hyperParameters(LengthScaleSEIndex));
-        double svSE = exp(2 * hyperParameters(SignalVarianceSEIndex));
-
-        // Work with arrays internally, convert to matrix for return value.
-        // This is because all the operations act elementwise.
-
-        // Compute Distances
-        Eigen::ArrayXXd squareDistanceXY = math_tools::squareDistance(
-                                               x.transpose(), y.transpose());
-        Eigen::ArrayXXd distanceXY = squareDistanceXY.sqrt();
-
-        // Periodic Kernel
-        Eigen::ArrayXXd P1 = (M_PI * distanceXY / plP);
-        Eigen::ArrayXXd S1 = P1.sin() / lsP;
-        Eigen::ArrayXXd Q1 = S1.square();
-        Eigen::ArrayXXd K1 = (-2 * Q1).exp() * svP;
-
-        // Square Exponential Kernel
-        Eigen::ArrayXXd E2 = squareDistanceXY / pow(lsSE, 2);
-        Eigen::ArrayXXd K2 = (-0.5 * E2).exp() * svSE;
-
-        // Combined Kernel
-        Eigen::MatrixXd K = K1 + K2;
-
-        // Derivatives
-        std::vector<Eigen::MatrixXd> derivatives(5);
-
-        derivatives[0] = 4 * K1 * Q1;
-        derivatives[1] = 4 / lsP * K1 * S1 * P1.cos() * P1;
-        derivatives[2] = 2 * K1;
-        derivatives[3] = K2 * E2;
-        derivatives[4] = 2 * K2;
-
-        return std::make_pair(K, derivatives);
-    }
-
-    void SquareExponentialPeriodic::setParameters(const Eigen::VectorXd& params)
-    {
-        this->hyperParameters = params;
-    }
-
-    void SquareExponentialPeriodic::setExtraParameters(const Eigen::VectorXd& params)
-    {
-        this->extraParameters = params;
-    }
-
-    const Eigen::VectorXd& SquareExponentialPeriodic::getParameters() const
-    {
-        return this->hyperParameters;
-    }
-
-    const Eigen::VectorXd& SquareExponentialPeriodic::getExtraParameters() const
-    {
-        return this->extraParameters;
-    }
-
-    int SquareExponentialPeriodic::getParameterCount() const
-    {
-        return this->hyperParameters.rows();
-    }
-
-    int SquareExponentialPeriodic::getExtraParameterCount() const
-    {
-        return this->extraParameters.rows();
-    }
-
     /* PeriodicSquareExponential */
     PeriodicSquareExponential::PeriodicSquareExponential() :
-        hyperParameters(Eigen::VectorXd::Zero(4)) { }
+    hyperParameters(Eigen::VectorXd::Zero(4)), extraParameters(Eigen::VectorXd::Ones(1)*std::numeric_limits<double>::max()) { }
 
     PeriodicSquareExponential::PeriodicSquareExponential(const Eigen::VectorXd& hyperParameters_) :
-        hyperParameters(hyperParameters_) { }
+    hyperParameters(hyperParameters_), extraParameters(Eigen::VectorXd::Ones(1)*std::numeric_limits<double>::max()) { }
 
     MatrixStdVecPair PeriodicSquareExponential::evaluate(
         const Eigen::VectorXd& x,
         const Eigen::VectorXd& y)
     {
-        double lsP  = exp(hyperParameters(LengthScalePIndex));
-        double plP  = exp(hyperParameters(PeriodLengthPIndex));
-        // signal variance is squared
-        double svP  = exp(2 * hyperParameters(SignalVariancePIndex));
-        double lsSE = exp(hyperParameters(LengthScaleSEIndex));
+
+        double lsSE0 = exp(hyperParameters(0));
+        double svSE0 = exp(2 * hyperParameters(1));
+        double lsP  = exp(hyperParameters(2));
+        double svP  = exp(2 * hyperParameters(3));
+
+        double plP  = exp(extraParameters(0));
 
         // Work with arrays internally, convert to matrix for return value.
         // This is because all the operations act elementwise.
 
         // Compute Distances
         Eigen::ArrayXXd squareDistanceXY = math_tools::squareDistance(
-                                               x.transpose(),
-                                               y.transpose());
+            x.transpose(), y.transpose());
         Eigen::ArrayXXd distanceXY = squareDistanceXY.sqrt();
+
+        // Square Exponential Kernel
+        Eigen::ArrayXXd E0 = squareDistanceXY / pow(lsSE0, 2);
+        Eigen::ArrayXXd K0 = svSE0 * (-0.5 * E0).exp();
 
         // Periodic Kernel
         Eigen::ArrayXXd P1 = (M_PI * distanceXY / plP);
         Eigen::ArrayXXd S1 = P1.sin() / lsP;
         Eigen::ArrayXXd Q1 = S1.square();
-        Eigen::ArrayXXd K1 = (-2 * Q1).exp() * svP;
-
-        // Square Exponential Kernel
-        Eigen::ArrayXXd E2 = squareDistanceXY / pow(lsSE, 2);
-        Eigen::ArrayXXd K2 = (-0.5 * E2).exp();
+        Eigen::ArrayXXd K1 = svP * (-2 * Q1).exp();
 
         // Combined Kernel
-        Eigen::MatrixXd K = K1 * K2;
+        Eigen::MatrixXd K = K0 + K1;
 
         // Derivatives
-        std::vector<Eigen::MatrixXd> derivatives(4);
+        std::vector<Eigen::MatrixXd> derivatives(7);
 
-        derivatives[0] = 4 * K1 * Q1 * K2;
-        derivatives[1] = 4 / lsP * K1 * S1 * P1.cos() * P1 * K2;
-        derivatives[2] = 2 * K1 * K2;
-        derivatives[3] = K2 * E2 * K1;
+        derivatives[0] = K0 * E0;
+        derivatives[1] = 2 * K0;
+        derivatives[2] = 4 * K1 * Q1;
+        derivatives[3] = 2 * K1;
 
         return std::make_pair(K, derivatives);
     }
@@ -192,13 +112,14 @@ namespace covariance_functions
 
     int PeriodicSquareExponential::getParameterCount() const
     {
-        return this->hyperParameters.rows();
+        return 4;
     }
 
     int PeriodicSquareExponential::getExtraParameterCount() const
     {
-        return this->extraParameters.rows();
+        return 1;
     }
+
 
     /* PeriodicSquareExponential2 */
     PeriodicSquareExponential2::PeriodicSquareExponential2() :
@@ -281,12 +202,12 @@ namespace covariance_functions
 
     int PeriodicSquareExponential2::getParameterCount() const
     {
-        return this->hyperParameters.rows();
+        return 6;
     }
 
     int PeriodicSquareExponential2::getExtraParameterCount() const
     {
-        return this->extraParameters.rows();
+        return 1;
     }
 
 }  // namespace covariance_functions
