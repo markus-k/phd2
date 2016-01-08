@@ -60,45 +60,6 @@ namespace covariance_functions
                         TauIndex
                       };
 
-    /*!@brief Covariance function for a combined kernel (Squared Exponential (SE) and Periodic (P))
-     *
-     * @param params
-     *    4 hyperparameters for the two kernels (lengthscales etc.)
-     *
-     * @param x1
-     * @param x2
-     *    The two Measurements at time t and t´
-     *
-     * @result
-     *   The result is a pair with the first component being the actual
-     *   Covariance Matrix.
-     *   The second component of the pair is a std::vector of Matrices
-     *   which contains the derivatives of the Covariance Matrix with respect
-     *   to each of the 4 hyperparameters.
-     */
-    MatrixStdVecPair combinedKernelCovariance(
-        const Eigen::Vector4d& params,
-        const Eigen::MatrixXd& x1,
-        const Eigen::MatrixXd& x2);
-
-
-    /*!@brief Covariance function that combines the result of the PeriodicSEKernel and
-     * the covarianceDirac function
-     *
-     * @param params
-     *    5 Hyperparameters for the different Kernels
-     *
-     * @param x1, x2
-     *    The two matrices we want to compute the covariance from
-     *
-     * @result
-     *    A pair consisting of the covariance matrix and the derivative
-     */
-    MatrixStdVecPair covariance(const Eigen::VectorXd& params,
-                                const Eigen::MatrixXd& x1,
-                                const Eigen::MatrixXd& x2);
-
-
     /*!@brief Base class definition for covariance functions
      */
     class CovFunc
@@ -126,43 +87,6 @@ namespace covariance_functions
 
         //! Produces a clone to be able to copy the object.
         virtual CovFunc* clone() const = 0;
-    };
-
-
-    /* SquareExponential + Periodic*/
-    class SquareExponentialPeriodic : public CovFunc
-    {
-    private:
-        Eigen::VectorXd hyperParameters;
-        Eigen::VectorXd extraParameters;
-
-    public:
-        SquareExponentialPeriodic();
-        explicit SquareExponentialPeriodic(const Eigen::VectorXd& hyperParameters);
-
-        covariance_functions::MatrixStdVecPair evaluate(
-            const Eigen::VectorXd& x1,
-            const Eigen::VectorXd& x2);
-
-        //! Method to set the hyper-parameters.
-        void setParameters(const Eigen::VectorXd& params);
-        void setExtraParameters(const Eigen::VectorXd& params);
-
-        //! Returns the hyper-parameters.
-        const Eigen::VectorXd& getParameters() const;
-        const Eigen::VectorXd& getExtraParameters() const;
-
-        //! Returns the number of hyper-parameters.
-        int getParameterCount() const;
-        int getExtraParameterCount() const;
-
-        /**
-         * Produces a clone to be able to copy the object.
-         */
-        virtual CovFunc* clone() const
-        {
-            return new SquareExponentialPeriodic(*this);
-        }
     };
 
     /*!
@@ -204,42 +128,41 @@ namespace covariance_functions
      * y is not given. These cases are never reached, though. So they are left out
      * at first.
      *
-     */
-    class PeriodicSquareExponential : public CovFunc
-    {
-    private:
-        Eigen::VectorXd hyperParameters;
-        Eigen::VectorXd extraParameters;
+     * This is a combined SE + Per kernel function */
+     class PeriodicSquareExponential : public CovFunc
+     {
+     private:
+         Eigen::VectorXd hyperParameters;
+         Eigen::VectorXd extraParameters;
 
-    public:
-        PeriodicSquareExponential();
-        explicit PeriodicSquareExponential(const Eigen::VectorXd& hyperParameters);
+     public:
+         PeriodicSquareExponential();
+         explicit PeriodicSquareExponential(const Eigen::VectorXd& hyperParameters);
 
+         covariance_functions::MatrixStdVecPair evaluate(
+             const Eigen::VectorXd& x1,
+             const Eigen::VectorXd& x2);
 
-        covariance_functions::MatrixStdVecPair evaluate(
-            const Eigen::VectorXd& x1,
-            const Eigen::VectorXd& x2);
+         //! Method to set the hyper-parameters.
+         void setParameters(const Eigen::VectorXd& params);
+         void setExtraParameters(const Eigen::VectorXd& params);
 
-        //! Method to set the hyper-parameters.
-        void setParameters(const Eigen::VectorXd& params);
-        void setExtraParameters(const Eigen::VectorXd& params);
+         //! Returns the hyper-parameters.
+         const Eigen::VectorXd& getParameters() const;
+         const Eigen::VectorXd& getExtraParameters() const;
 
-        //! Returns the hyper-parameters.
-        const Eigen::VectorXd& getParameters() const;
-        const Eigen::VectorXd& getExtraParameters() const;
+         //! Returns the number of hyper-parameters.
+         int getParameterCount() const;
+         int getExtraParameterCount() const;
 
-        //! Returns the number of hyper-parameters.
-        int getParameterCount() const;
-        int getExtraParameterCount() const;
-
-        /**
-         * Produces a clone to be able to copy the object.
-         */
-        virtual CovFunc* clone() const
-        {
-            return new PeriodicSquareExponential(*this);
-        }
-    };
+         /**
+          * Produces a clone to be able to copy the object.
+          */
+         virtual CovFunc* clone() const
+         {
+             return new PeriodicSquareExponential(*this);
+         }
+     };
 
 
     /* This is a combined SE + Per + SE kernel function */
