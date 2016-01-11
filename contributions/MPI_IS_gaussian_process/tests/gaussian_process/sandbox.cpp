@@ -180,11 +180,11 @@ int main(int argc, char** argv)
     elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
     std::cout << "time for infer: " << elapsed_secs << " s." << std::endl;
 
-//     begin = std::clock();
-//     gp.inferSD(time, meas, 256);
-//     end = std::clock();
-//     elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-//     std::cout << "time for inferSD: " << elapsed_secs << " s." << std::endl;
+    begin = std::clock();
+    gp.inferSD(time, meas, 256);
+    end = std::clock();
+    elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+    std::cout << "time for inferSD: " << elapsed_secs << " s." << std::endl;
 
 
     int M = 512; // number of prediction points
