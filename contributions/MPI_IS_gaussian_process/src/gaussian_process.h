@@ -183,6 +183,14 @@ public:
     Eigen::VectorXd neg_log_likelihood_gradient() const;
 
     /*!
+     * Calculates the second derivative of the negative log likelihood.
+     *
+     * This function is used for model selection and optimization of hyper
+     * parameters. The calculations are completely done on the cached datapoints.
+     */
+    Eigen::MatrixXd neg_log_likelihood_hessian() const;
+
+    /*!
      * Sets the hyperparameters to the given vector.
      */
     void setHyperParameters(const Eigen::VectorXd& hyperParameters);

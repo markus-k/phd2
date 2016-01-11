@@ -68,10 +68,23 @@ namespace covariance_functions
         CovFunc() {}
         virtual ~CovFunc() {}
 
-        //! The evaluation returns the kernel matrix from two input vectors.
-        virtual covariance_functions::MatrixStdVecPair evaluate(
-            const Eigen::VectorXd& x1,
-            const Eigen::VectorXd& x2) = 0;
+        /*!
+         * Evaluates the covariance function, caches the quantities that are needed
+         * to calculate gradient and Hessian.
+         */
+        virtual Eigen::MatrixXd evaluate(const Eigen::VectorXd& x1, const Eigen::VectorXd& x2) = 0;
+
+        /*!
+         * Calculates the gradient for the previously calculated covariance.
+         * Needs to be called after evaluate().
+         */
+        virtual std::vector<Eigen::MatrixXd> getGradient() const = 0;
+
+        /*!
+         * Calculates the Hessian for the previously calculated covariance.
+         * Needs to be called after evaluate().
+         */
+        virtual std::vector<std::vector<Eigen::MatrixXd>> getHessian() const = 0;
 
         //! Method to set the hyper-parameters.
         virtual void setParameters(const Eigen::VectorXd& params) = 0;
@@ -135,13 +148,35 @@ namespace covariance_functions
          Eigen::VectorXd hyperParameters;
          Eigen::VectorXd extraParameters;
 
+         // caching for the derivatives
+         Eigen::ArrayXXd E0;
+         Eigen::ArrayXXd K0;
+         Eigen::ArrayXXd P1;
+         Eigen::ArrayXXd S1;
+         Eigen::ArrayXXd Q1;
+         Eigen::ArrayXXd K1;
+
      public:
          PeriodicSquareExponential();
          explicit PeriodicSquareExponential(const Eigen::VectorXd& hyperParameters);
 
-         covariance_functions::MatrixStdVecPair evaluate(
-             const Eigen::VectorXd& x1,
-             const Eigen::VectorXd& x2);
+         /*!
+          * Evaluates the covariance function, caches the quantities that are needed
+          * to calculate gradient and Hessian.
+          */
+         Eigen::MatrixXd evaluate(const Eigen::VectorXd& x1, const Eigen::VectorXd& x2);
+
+         /*!
+          * Calculates the gradient for the previously calculated covariance.
+          * Needs to be called after evaluate().
+          */
+         std::vector<Eigen::MatrixXd> getGradient() const;
+
+         /*!
+          * Calculates the Hessian for the previously calculated covariance.
+          * Needs to be called after evaluate().
+          */
+         std::vector<std::vector<Eigen::MatrixXd>> getHessian() const;
 
          //! Method to set the hyper-parameters.
          void setParameters(const Eigen::VectorXd& params);
@@ -172,13 +207,23 @@ namespace covariance_functions
         Eigen::VectorXd hyperParameters;
         Eigen::VectorXd extraParameters;
 
+        // caching for the derivatives
+        Eigen::ArrayXXd E0;
+        Eigen::ArrayXXd K0;
+        Eigen::ArrayXXd P1;
+        Eigen::ArrayXXd S1;
+        Eigen::ArrayXXd Q1;
+        Eigen::ArrayXXd K1;
+        Eigen::ArrayXXd E2;
+        Eigen::ArrayXXd K2;
+
     public:
         PeriodicSquareExponential2();
         explicit PeriodicSquareExponential2(const Eigen::VectorXd& hyperParameters);
 
-        covariance_functions::MatrixStdVecPair evaluate(
-            const Eigen::VectorXd& x1,
-            const Eigen::VectorXd& x2);
+        Eigen::MatrixXd evaluate(const Eigen::VectorXd& x1, const Eigen::VectorXd& x2);
+        std::vector<Eigen::MatrixXd> getGradient() const;
+        std::vector<std::vector<Eigen::MatrixXd>> getHessian() const;
 
         //! Method to set the hyper-parameters.
         void setParameters(const Eigen::VectorXd& params);
