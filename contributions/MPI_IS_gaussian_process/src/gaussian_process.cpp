@@ -183,7 +183,7 @@ Eigen::VectorXd GP::drawSample(const Eigen::VectorXd& locations,
     Eigen::MatrixXd samples;
 
     // we need the prior covariance for both, prior and posterior samples.
-    prior_covariance = covFunc_->evaluate(locations, locations).first;
+    prior_covariance = covFunc_->evaluate(locations, locations);
     kernel_matrix = prior_covariance;
 
     if (gram_matrix_.cols() == 0)   // i.e. only a prior
@@ -194,7 +194,7 @@ Eigen::VectorXd GP::drawSample(const Eigen::VectorXd& locations,
     else
     {
         Eigen::MatrixXd mixed_covariance;
-        mixed_covariance = covFunc_->evaluate(locations, data_loc_).first;
+        mixed_covariance = covFunc_->evaluate(locations, data_loc_);
         Eigen::MatrixXd posterior_covariance;
         posterior_covariance = prior_covariance - mixed_covariance *
                                (chol_gram_matrix_.solve(mixed_covariance.transpose()));
@@ -215,14 +215,13 @@ void GP::infer()
     assert(data_loc_.rows() > 0 && "Error: the GP is not yet initialized!");
 
     // The data covariance matrix
-    covariance_functions::MatrixStdVecPair cov_result =
-        covFunc_->evaluate(data_loc_, data_loc_);
-    Eigen::MatrixXd& data_cov = cov_result.first;
+    Eigen::MatrixXd data_cov = covFunc_->evaluate(data_loc_, data_loc_);
+    std::vector<Eigen::MatrixXd> cov_gradient = covFunc_->getGradient();
 
-    gram_matrix_derivatives_.resize(cov_result.second.size() + 1);
-    for (size_t i = 0; i < cov_result.second.size(); i++)
+    gram_matrix_derivatives_.resize(cov_gradient.size() + 1);
+    for (size_t i = 0; i < cov_gradient.size(); i++)
     {
-        gram_matrix_derivatives_[i + 1].swap(cov_result.second[i]);
+        gram_matrix_derivatives_[i + 1].swap(cov_gradient[i]);
     }
     // noise derivative first
     gram_matrix_derivatives_[0] = 2 * std::exp(2 * log_noise_sd_) *
@@ -266,21 +265,18 @@ void GP::inferSD(const Eigen::VectorXd& data_loc,
              const int n, const double pred_loc /*= std::numeric_limits<double>::quiet_NaN()*/)
 {
     Eigen::VectorXd covariance;
-    covariance_functions::MatrixStdVecPair cov_result;
 
     // use the last datapoint as prediction reference, if noone is given.
     if (math_tools::isNaN(pred_loc))
     {
-        cov_result = covFunc_->evaluate(data_loc, data_loc.tail(1));
+        covariance = covFunc_->evaluate(data_loc, data_loc.tail(1));
     }
     else
     {
         Eigen::VectorXd pred_vec(1);
         pred_vec << pred_loc;
-        cov_result = covFunc_->evaluate(data_loc, pred_vec);
+        covariance = covFunc_->evaluate(data_loc, pred_vec);
     }
-
-    covariance = cov_result.first;
 
     std::vector<int> index(covariance.size(), 0);
     for (int i = 0 ; i != index.size() ; i++) {
@@ -337,8 +333,7 @@ GP::VectorMatrixPair GP::predict(const Eigen::VectorXd& locations) const
     assert(covFunc != 0);
 
     // The prior covariance matrix (evaluated on test points)
-    Eigen::MatrixXd prior_cov = covFunc->evaluate(
-                                    locations, locations).first;
+    Eigen::MatrixXd prior_cov = covFunc->evaluate(locations, locations);
 
     if (data_loc_.rows() == 0)  // check if the data is empty
     {
@@ -348,8 +343,7 @@ GP::VectorMatrixPair GP::predict(const Eigen::VectorXd& locations) const
     {
 
         // The mixed covariance matrix (test and data points)
-        Eigen::MatrixXd mixed_cov = covFunc->evaluate(
-                                        locations, data_loc_).first;
+        Eigen::MatrixXd mixed_cov = covFunc->evaluate(locations, data_loc_);
 
         Eigen::MatrixXd phi(2, locations.rows());
         if (use_explicit_trend_)
@@ -413,6 +407,13 @@ Eigen::VectorXd GP::neg_log_likelihood_gradient() const
         result[i] = -0.5 * (alpha_.transpose() * gram_matrix_derivatives_[i] * alpha_ -
                             beta.trace());
     }
+    return result;
+}
+
+Eigen::MatrixXd GP::neg_log_likelihood_hessian() const
+{
+    Eigen::MatrixXd result;
+    // TODO: Implement
     return result;
 }
 

@@ -133,8 +133,7 @@ TEST_F(GPTest, drawSamples_prior_covariance_test)
     }
     Eigen::MatrixXd sample_cov = sample_collection * sample_collection.transpose() / N;
 
-    Eigen::MatrixXd expected_cov = covariance_function_.evaluate(location_vector_,
-                                   location_vector_).first;
+    Eigen::MatrixXd expected_cov = covariance_function_.evaluate(location_vector_, location_vector_);
 
     for (int i = 0; i < sample_cov.rows(); i++)
     {
@@ -290,9 +289,9 @@ TEST_F(GPTest, CovarianceTest2)
 
     kXX_matlab << 8.0000, 2.0043, 0.6553, 2.0043, 8.0000, 2.0043, 0.6553, 2.0043, 8.0000;
 
-    Eigen::MatrixXd kxx = covFunc.evaluate(locations, locations).first;
-    Eigen::MatrixXd kxX = covFunc.evaluate(locations, X).first;
-    Eigen::MatrixXd kXX = covFunc.evaluate(X, X).first;
+    Eigen::MatrixXd kxx = covFunc.evaluate(locations, locations);
+    Eigen::MatrixXd kxX = covFunc.evaluate(locations, X);
+    Eigen::MatrixXd kXX = covFunc.evaluate(X, X);
 
     for (int col = 0; col < kxx.cols(); col++)
     {
@@ -350,12 +349,13 @@ TEST_F(GPTest, covariance_derivative_test)
             Eigen::VectorXd location = math_tools::generate_normal_random_matrix(5, 1);
 
             covFunc.setParameters(hyperParams);
-            analytic_derivative = covFunc.evaluate(location, location).second[h];
+            covFunc.evaluate(location, location);
+            analytic_derivative = covFunc.getGradient()[h];
 
             covFunc.setParameters(hyper_plus);
-            cov_plus = covFunc.evaluate(location, location).first;
+            cov_plus = covFunc.evaluate(location, location);
             covFunc.setParameters(hyper_minus);
-            cov_minus = covFunc.evaluate(location, location).first;
+            cov_minus = covFunc.evaluate(location, location);
 
             numeric_derivative = (cov_plus - cov_minus) / (2 * eps);
 
@@ -402,9 +402,9 @@ TEST_F(GPTest, CovarianceTest3)
                         0.97441, 3.00000, 0.97441,
                         0.27067, 0.97441, 3.00000;
 
-    Eigen::MatrixXd kxx = covFunc.evaluate(locations, locations).first;
-    Eigen::MatrixXd kxX = covFunc.evaluate(locations, X).first;
-    Eigen::MatrixXd kXX = covFunc.evaluate(X, X).first;
+    Eigen::MatrixXd kxx = covFunc.evaluate(locations, locations);
+    Eigen::MatrixXd kxX = covFunc.evaluate(locations, X);
+    Eigen::MatrixXd kXX = covFunc.evaluate(X, X);
 
     for (int col = 0; col < kxx.cols(); col++)
     {
@@ -467,12 +467,13 @@ TEST_F(GPTest, CovarianceDerivativeTest3)
             Eigen::VectorXd location = math_tools::generate_normal_random_matrix(5, 1);
 
             covFunc.setParameters(hyperParams);
-            analytic_derivative = covFunc.evaluate(location, location).second[h];
+            covFunc.evaluate(location, location);
+            analytic_derivative = covFunc.getGradient()[h];
 
             covFunc.setParameters(hyper_plus);
-            cov_plus = covFunc.evaluate(location, location).first;
+            cov_plus = covFunc.evaluate(location, location);
             covFunc.setParameters(hyper_minus);
-            cov_minus = covFunc.evaluate(location, location).first;
+            cov_minus = covFunc.evaluate(location, location);
 
             numeric_derivative = (cov_plus - cov_minus) / (2 * eps);
 
