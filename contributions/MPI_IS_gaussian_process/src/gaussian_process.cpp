@@ -258,7 +258,7 @@ void GP::inferSD(const Eigen::VectorXd& data_loc,
     covariance_functions::MatrixStdVecPair cov_result;
 
     // use the last datapoint as prediction reference, if noone is given.
-    if (std::isnan(pred_loc))
+    if (math_tools::isNaN(pred_loc))
     {
         cov_result = covFunc_->evaluate(data_loc, data_loc.tail(1));
     }
