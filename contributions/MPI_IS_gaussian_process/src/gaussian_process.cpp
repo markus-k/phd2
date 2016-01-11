@@ -41,6 +41,17 @@
 #include "math_tools.h"
 #include "covariance_functions.h"
 
+// A functor for special orderings
+struct covariance_ordering
+{
+    covariance_ordering(Eigen::VectorXd const& cov) : covariance_(cov){}
+    bool operator()(int a, int b) const
+    {
+        return (covariance_[a] > covariance_[b]);
+    }
+    Eigen::VectorXd const& covariance_;
+};
+
 GP::GP() : covFunc_(0), // initialize pointer to null
     covFuncProj_(0), // initialize pointer to null
     data_loc_(Eigen::VectorXd()),
@@ -258,7 +269,7 @@ void GP::inferSD(const Eigen::VectorXd& data_loc,
     covariance_functions::MatrixStdVecPair cov_result;
 
     // use the last datapoint as prediction reference, if noone is given.
-    if (std::isnan(pred_loc))
+    if (math_tools::isNaN(pred_loc))
     {
         cov_result = covFunc_->evaluate(data_loc, data_loc.tail(1));
     }
@@ -278,9 +289,7 @@ void GP::inferSD(const Eigen::VectorXd& data_loc,
 
     // sort indices with respect to covariance value
     std::sort(index.begin(), index.end(),
-         [&](const int& a, const int& b) {
-             return (covariance[a] > covariance[b]);
-         }
+         covariance_ordering(covariance)
     );
 
     if (n < data_loc.rows()) {

@@ -80,7 +80,7 @@ namespace covariance_functions
         Eigen::MatrixXd K = K0 + K1;
 
         // Derivatives
-        std::vector<Eigen::MatrixXd> derivatives(7);
+        std::vector<Eigen::MatrixXd> derivatives(4);
 
         derivatives[0] = K0 * E0;
         derivatives[1] = 2 * K0;
@@ -168,7 +168,7 @@ namespace covariance_functions
         Eigen::MatrixXd K = K0 + K1 + K2;
 
         // Derivatives
-        std::vector<Eigen::MatrixXd> derivatives(7);
+        std::vector<Eigen::MatrixXd> derivatives(6);
 
         derivatives[0] = K0 * E0;
         derivatives[1] = 2 * K0;
