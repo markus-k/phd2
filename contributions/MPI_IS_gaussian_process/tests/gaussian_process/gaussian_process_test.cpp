@@ -131,8 +131,7 @@ TEST_F(GPTest, drawSamples_prior_covariance_test)
         Eigen::VectorXd sample = gp_.drawSample(location_vector_);
         sample_collection.col(i) = sample;
     }
-    Eigen::MatrixXd sample_cov = sample_collection * sample_collection.transpose()
-                                 / N;
+    Eigen::MatrixXd sample_cov = sample_collection * sample_collection.transpose() / N;
 
     Eigen::MatrixXd expected_cov = covariance_function_.evaluate(location_vector_,
                                    location_vector_).first;
@@ -192,8 +191,8 @@ TEST_F(GPTest, periodic_covariance_function_test)
     EXPECT_EQ(u.getParameterCount(), 4);
 
     GP instance_gp = GP(covariance_functions::PeriodicSquareExponential());
-    ASSERT_EQ(instance_gp.getHyperParameters().size(), 5);
-    instance_gp.setHyperParameters(Eigen::VectorXd::Zero(5)); // should not assert
+    ASSERT_EQ(instance_gp.getHyperParameters().size(), 6);
+    instance_gp.setHyperParameters(Eigen::VectorXd::Zero(6)); // should not assert
 }
 
 
@@ -262,8 +261,11 @@ TEST_F(GPTest, squareDistanceTest)
 
 TEST_F(GPTest, CovarianceTest2)
 {
-    Eigen::Vector4d hyperParams;
-    hyperParams << 1, 2, 3, 4;
+    Eigen::VectorXd hyperParams(4), extraParams(1);
+    hyperParams << 1, 2, 1, 2;
+    hyperParams = hyperParams.array().log();
+    extraParams << 500;
+    extraParams = extraParams.array().log();
 
     Eigen::VectorXd locations(5), X(3), Y(3);
     locations << 0, 50, 100, 150, 200;
@@ -271,29 +273,22 @@ TEST_F(GPTest, CovarianceTest2)
     Y << 1, -1, 1;
 
     covariance_functions::PeriodicSquareExponential covFunc(hyperParams);
+    covFunc.setExtraParameters(extraParams);
     GP gp(covFunc);
 
     Eigen::MatrixXd kxx_matlab(5, 5);
-    kxx_matlab <<
-               403.4288,  234.9952,   57.6856,    7.7574,    0.4862,
-                          234.9952,  403.4288,  234.9952,   57.6856,    7.7574,
-                          57.6856,  234.9952,  403.4288,  234.9952,   57.6856,
-                          7.7574,   57.6856,  234.9952,  403.4288,  234.9952,
-                          0.4862,    7.7574,   57.6856,  234.9952,  403.4288;
-
     Eigen::MatrixXd kxX_matlab(5, 3);
-    kxX_matlab <<
-               403.4288,   57.6856,    0.4862,
-                           234.9952,  234.9952,    7.7574,
-                           57.6856,  403.4288,   57.6856,
-                           7.7574,  234.9952,  234.9952,
-                           0.4862,   57.6856,  403.4288;
-
     Eigen::MatrixXd kXX_matlab(3, 3);
-    kXX_matlab <<
-               403.4288,   57.6856,    0.4862,
-                           57.6856,  403.4288,   57.6856,
-                           0.4862,   57.6856,  403.4288;
+
+    kxx_matlab << 8.0000, 3.3046, 2.0043, 1.0803, 0.6553,
+                  3.3046, 8.0000, 3.3046, 2.0043, 1.0803,
+                  2.0043, 3.3046, 8.0000, 3.3046, 2.0043,
+                  1.0803, 2.0043, 3.3046, 8.0000, 3.3046,
+                  0.6553, 1.0803, 2.0043, 3.3046, 8.0000;
+
+    kxX_matlab << 8.0000, 2.0043, 0.6553, 3.3046, 3.3046, 1.0803, 2.0043, 8.0000, 2.0043, 1.0803, 3.3046, 3.3046, 0.6553, 2.0043, 8.0000;
+
+    kXX_matlab << 8.0000, 2.0043, 0.6553, 2.0043, 8.0000, 2.0043, 0.6553, 2.0043, 8.0000;
 
     Eigen::MatrixXd kxx = covFunc.evaluate(locations, locations).first;
     Eigen::MatrixXd kxX = covFunc.evaluate(locations, X).first;
@@ -491,8 +486,9 @@ TEST_F(GPTest, CovarianceDerivativeTest3)
 TEST_F(GPTest, likelihood_test)
 {
 
-    Eigen::VectorXd hyperParams(5);
-    hyperParams << std::log(0.1), 1, 2, 3, 4;
+    Eigen::VectorXd hyperParams(6);
+    hyperParams << 0.1, 1, 2, 1, 2, 500;
+    hyperParams = hyperParams.array().log();
 
     Eigen::VectorXd locations(5), X(3), Y(3);
     locations << 0, 50, 100, 150, 200;
@@ -502,10 +498,7 @@ TEST_F(GPTest, likelihood_test)
     gp_.setHyperParameters(hyperParams);
 
     Eigen::MatrixXd kXX_matlab(3, 3);
-    kXX_matlab <<
-               403.4288,   57.6856,    0.4862,
-                           57.6856,  403.4288,   57.6856,
-                           0.4862,   57.6856,  403.4288;
+    kXX_matlab << 8.0000, 2.0043, 0.6553, 2.0043, 8.0000, 2.0043, 0.6553, 2.0043, 8.0000;
 
     gp_.infer(X, Y);
 
@@ -519,17 +512,18 @@ TEST_F(GPTest, likelihood_test)
     expected_nll += data_cov.rows() * std::log(2 * M_PI);
     expected_nll *= 0.5;
 
-    EXPECT_NEAR(calculated_nll, expected_nll, 1e-6);
+    EXPECT_NEAR(calculated_nll, expected_nll, 2e-6);
 }
 
 TEST_F(GPTest, likelihood_derivative_test)
 {
     int N = 1; // number of tests
     double eps = 1e-5;
-    Eigen::VectorXd hyperParams(5);
-    hyperParams << 1, 1, 2, 1, 2;
+    Eigen::VectorXd hyperParams(6);
+    hyperParams << 0.1, 1, 2, 1, 2, 500;
+    hyperParams = hyperParams.array().log();
 
-    for (int h = 0; h < hyperParams.rows(); ++h)
+    for (int h = 0; h < hyperParams.rows() - 1; ++h)
     {
         Eigen::VectorXd hyper_plus(hyperParams);
         Eigen::VectorXd hyper_minus(hyperParams);
@@ -549,7 +543,7 @@ TEST_F(GPTest, likelihood_derivative_test)
         for (int i = 0; i < N; ++i)
         {
             Eigen::VectorXd location =
-                100 * math_tools::generate_normal_random_matrix(50, 1);
+                100 * math_tools::generate_normal_random_matrix(5, 1);
             Eigen::VectorXd output = gp_.drawSample(location);
             gp_.infer(location, output);
 
@@ -567,14 +561,17 @@ TEST_F(GPTest, likelihood_derivative_test)
 
             relative_error = absolute_error /
                              (0.5 * (std::abs(numeric_derivative) + std::abs(analytic_derivative)));
-            if (relative_error > 1e-4)
-            {
-                std::cout << "Failing derivative: " << h << std::endl;
-                std::cout << "Numeric derivative: " << numeric_derivative << std::endl;
-                std::cout << "Analyt. derivative: " << analytic_derivative << std::endl;
-            }
 
+            if (absolute_error > 1e-8)
+            {
+                if (relative_error > 1e-4)
+                {
+                    std::cout << "Failing derivative: " << h << std::endl;
+                    std::cout << "Numeric derivative: " << numeric_derivative << std::endl;
+                    std::cout << "Analyt. derivative: " << analytic_derivative << std::endl;
+                }
             EXPECT_NEAR(relative_error, 0, 1e-4);
+            }
         }
     }
 }
