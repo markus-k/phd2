@@ -93,10 +93,20 @@ namespace covariance_functions
         return derivatives;
     }
 
-    std::vector< std::vector< Eigen::MatrixXd > > PeriodicSquareExponential::getHessian() const
+    std::vector<std::vector<Eigen::MatrixXd>> PeriodicSquareExponential::getHessian() const
     {
-        std::vector<std::vector<Eigen::MatrixXd>> hessian;
-        // TODO: Implement
+        std::vector<std::vector<Eigen::MatrixXd>> hessian(4, std::vector<Eigen::MatrixXd>(4));
+
+        hessian[0][0] = K0 * ( E0 * E0 - 2 * E0);
+        hessian[0][1] = 2 * K0 * E0;
+        hessian[1][0] = 2 * K0 * E0;
+        hessian[1][1] = 4 * K0;
+
+        hessian[2][2] = K1 * ( 8 * Q1 * Q1 - 8 * Q1);
+        hessian[2][3] = 8 * K1 * Q1;
+        hessian[3][2] = 8 * K1 * Q1;
+        hessian[3][3] = 4 * K1;
+
         return hessian;
     }
 
@@ -195,8 +205,23 @@ namespace covariance_functions
 
     std::vector< std::vector< Eigen::MatrixXd > > PeriodicSquareExponential2::getHessian() const
     {
-        std::vector<std::vector<Eigen::MatrixXd>> hessian;
-        // TODO: Implement
+        std::vector<std::vector<Eigen::MatrixXd>> hessian(6, std::vector<Eigen::MatrixXd>(6));
+
+        hessian[0][0] = K0 * ( E0 * E0 - 2 * E0);
+        hessian[0][1] = 2 * K0 * E0;
+        hessian[1][0] = 2 * K0 * E0;
+        hessian[1][1] = 4 * K0;
+
+        hessian[2][2] = K1 * ( 8 * Q1 * Q1 - 8 * Q1);
+        hessian[2][3] = 8 * K1 * Q1;
+        hessian[3][2] = 8 * K1 * Q1;
+        hessian[3][3] = 4 * K1;
+
+        hessian[4][4] = K2 * ( E2 * E2 - 2 * E2);
+        hessian[4][5] = 2 * K2 * E2;
+        hessian[5][4] = 2 * K2 * E2;
+        hessian[5][5] = 4 * K2;
+
         return hessian;
     }
 
