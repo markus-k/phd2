@@ -30,7 +30,7 @@
  */
 
 /*!@file
- * @author  Klenske <edgar.klenske@tuebingen.mpg.de>
+ * @author  Edgar Klenske <edgar.klenske@tuebingen.mpg.de>
  * @author  Stephan Wenninger <stephan.wenninger@tuebingen.mpg.de>
  *
  * @brief
@@ -65,6 +65,7 @@ private:
     Eigen::VectorXd data_out_;
     Eigen::MatrixXd gram_matrix_;
     std::vector<Eigen::MatrixXd> gram_matrix_derivatives_;
+    std::vector<std::vector<Eigen::MatrixXd>> gram_matrix_hessian_;
     Eigen::VectorXd alpha_;
     Eigen::LDLT<Eigen::MatrixXd> chol_gram_matrix_;
     double log_noise_sd_;
