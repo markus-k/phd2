@@ -207,9 +207,9 @@ public:
     void setCovarianceHyperParameters(const Eigen::VectorXd& hyperParameters);
 
     /*!
-     * Optimizes the hyperparameters for a certain number of line searches
+     * Optimizes the hyperparameters with Newton's method and a given learning rate
      */
-    Eigen::VectorXd optimizeHyperParameters(int number_of_linesearches) const;
+    Eigen::MatrixXd optimizeHyperParameters(double learning_rate) const;
 
     /*!
      * Enables the use of a explicit linear basis function.
