@@ -577,6 +577,81 @@ TEST_F(GPTest, likelihood_derivative_test)
     }
 }
 
+TEST_F(GPTest, likelihood_hessian_test)
+{
+    double eps = 1e-4;
+    Eigen::VectorXd hyperParams(6);
+    hyperParams << 0.1, 100, 2, 100, 2, 500;
+    hyperParams = hyperParams.array().log();
+    gp_.setHyperParameters(hyperParams);
+
+    Eigen::VectorXd location = 100 * math_tools::generate_normal_random_matrix(5, 1);
+    Eigen::VectorXd output = gp_.drawSample(location);
+    gp_.infer(location, output);
+
+    for (int h1 = 0; h1 < hyperParams.rows() - 1; ++h1)
+    {
+        for (int h2 = 0; h2 < hyperParams.rows() - 1; ++h2)
+        {
+            // for the finite differences method we need 4 evaluations
+            Eigen::VectorXd hyper_pp(hyperParams);
+            Eigen::VectorXd hyper_pm(hyperParams);
+            Eigen::VectorXd hyper_mp(hyperParams);
+            Eigen::VectorXd hyper_mm(hyperParams);
+
+            hyper_pp[h1] += eps;
+            hyper_pp[h2] += eps;
+            hyper_pm[h1] += eps;
+            hyper_pm[h2] -= eps;
+            hyper_mp[h1] -= eps;
+            hyper_mp[h2] += eps;
+            hyper_mm[h1] -= eps;
+            hyper_mm[h2] -= eps;
+
+            double lik_pp;
+            double lik_pm;
+            double lik_mp;
+            double lik_mm;
+
+            double analytic_derivative;
+            double numeric_derivative;
+
+            double relative_error;
+            double absolute_error;
+
+            gp_.setHyperParameters(hyperParams);
+            analytic_derivative = gp_.neg_log_likelihood_hessian()(h1, h2);
+
+            gp_.setHyperParameters(hyper_pp);
+            lik_pp = gp_.neg_log_likelihood();
+            gp_.setHyperParameters(hyper_pm);
+            lik_pm = gp_.neg_log_likelihood();
+            gp_.setHyperParameters(hyper_mp);
+            lik_mp = gp_.neg_log_likelihood();
+            gp_.setHyperParameters(hyper_mm);
+            lik_mm = gp_.neg_log_likelihood();
+
+            numeric_derivative = (lik_pp - lik_pm - lik_mp + lik_mm) / (4 * eps * eps);
+
+            absolute_error = std::abs(numeric_derivative - analytic_derivative);
+
+            relative_error = absolute_error /
+            (0.5 * (std::abs(numeric_derivative) + std::abs(analytic_derivative)));
+
+            if (absolute_error > 1e-4)
+            {
+                if (relative_error > 1e-4)
+                {
+                    std::cout << "Failing derivative: " << h1 << "|" << h2 << std::endl;
+                    std::cout << "Numeric derivative: " << numeric_derivative << std::endl;
+                    std::cout << "Analyt. derivative: " << analytic_derivative << std::endl;
+                }
+                EXPECT_NEAR(relative_error, 0, 1e-2);
+            }
+        }
+    }
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
