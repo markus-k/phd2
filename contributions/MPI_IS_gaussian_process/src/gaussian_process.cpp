@@ -484,6 +484,19 @@ void GP::setCovarianceHyperParameters(const Eigen::VectorXd& hyperParameters)
     infer();
 }
 
+Eigen::MatrixXd GP::optimizeHyperParameters(double learning_rate) const
+{
+    Eigen::VectorXd hypers(covFunc_->getParameterCount() + 1);
+    hypers << log_noise_sd_, covFunc_->getParameters();
+
+    Eigen::LDLT<Eigen::MatrixXd> chol_hessian = neg_log_likelihood_hessian().ldlt();
+    hypers = hypers - learning_rate*chol_hessian.solve(neg_log_likelihood_gradient());
+
+    Eigen::VectorXd extHypers(covFunc_->getParameterCount() + covFunc_->getExtraParameterCount() + 1);
+    extHypers << hypers, covFunc_->getExtraParameters();
+    return extHypers;
+}
+
 void GP::enableExplicitTrend()
 {
     use_explicit_trend_ = true;

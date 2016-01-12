@@ -652,6 +652,46 @@ TEST_F(GPTest, likelihood_hessian_test)
     }
 }
 
+TEST_F(GPTest, parameter_identification_test)
+{
+    double eps = 1e-4;
+    Eigen::VectorXd hyperParams(6), trueHyperParams(6);
+    hyperParams << 0.1, 100, 2, 1, 2, 500000;
+    hyperParams = hyperParams.array().log();
+    trueHyperParams = hyperParams;
+    gp_.setHyperParameters(hyperParams);
+
+    Eigen::VectorXd location = 100 * math_tools::generate_normal_random_matrix(128, 1);
+    Eigen::VectorXd output = gp_.drawSample(location);
+    gp_.infer(location, output);
+
+    hyperParams << 0.2, 50, 3, 15, 1, 500000;
+    hyperParams = hyperParams.array().log();
+    gp_.setHyperParameters(hyperParams);
+
+    for (int i = 0; i < 20; ++i)
+    {
+        double gamma = 0.1;
+        Eigen::VectorXd oldHypers = gp_.getHyperParameters();
+        double oldLogLik = gp_.neg_log_likelihood();
+        Eigen::VectorXd tempHypers = gp_.optimizeHyperParameters(gamma);
+        gp_.setHyperParameters(tempHypers);
+
+        if (oldLogLik < gp_.neg_log_likelihood())
+        {
+            gp_.setHyperParameters(oldHypers);
+        }
+    }
+
+    trueHyperParams = trueHyperParams.array().exp();
+    hyperParams = gp_.getHyperParameters().array().exp();
+
+    EXPECT_NEAR(trueHyperParams[0], hyperParams[0], 1e-2);
+    EXPECT_NEAR(trueHyperParams[1], hyperParams[1], 6e-0);
+    EXPECT_NEAR(trueHyperParams[2], hyperParams[2], 1e-1);
+
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
