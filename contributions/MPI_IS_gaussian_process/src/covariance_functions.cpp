@@ -65,49 +65,19 @@ namespace covariance_functions
         Eigen::ArrayXXd distanceXY = squareDistanceXY.sqrt();
 
         // Square Exponential Kernel
-        E0 = squareDistanceXY / pow(lsSE0, 2);
-        K0 = svSE0 * (-0.5 * E0).exp();
+        Eigen::ArrayXXd E0 = squareDistanceXY / pow(lsSE0, 2);
+        Eigen::ArrayXXd K0 = svSE0 * (-0.5 * E0).exp();
 
         // Periodic Kernel
-        P1 = (M_PI * distanceXY / plP);
-        S1 = P1.sin() / lsP;
-        Q1 = S1.square();
-        K1 = svP * (-2 * Q1).exp();
+        Eigen::ArrayXXd P1 = (M_PI * distanceXY / plP);
+        Eigen::ArrayXXd S1 = P1.sin() / lsP;
+        Eigen::ArrayXXd Q1 = S1.square();
+        Eigen::ArrayXXd K1 = svP * (-2 * Q1).exp();
 
         // Combined Kernel
-        Eigen::MatrixXd K = K0 + K1;
+        Eigen::ArrayXXd K = K0 + K1;
 
         return K;
-    }
-
-    std::vector<Eigen::MatrixXd> PeriodicSquareExponential::getGradient() const
-    {
-        // Derivatives
-        std::vector<Eigen::MatrixXd> derivatives(4);
-
-        derivatives[0] = K0 * E0;
-        derivatives[1] = 2 * K0;
-        derivatives[2] = 4 * K1 * Q1;
-        derivatives[3] = 2 * K1;
-
-        return derivatives;
-    }
-
-    std::vector<std::vector<Eigen::MatrixXd>> PeriodicSquareExponential::getHessian() const
-    {
-        std::vector<std::vector<Eigen::MatrixXd>> hessian(4, std::vector<Eigen::MatrixXd>(4));
-
-        hessian[0][0] = K0 * ( E0 * E0 - 2 * E0);
-        hessian[0][1] = 2 * K0 * E0;
-        hessian[1][0] = 2 * K0 * E0;
-        hessian[1][1] = 4 * K0;
-
-        hessian[2][2] = K1 * ( 8 * Q1 * Q1 - 8 * Q1);
-        hessian[2][3] = 8 * K1 * Q1;
-        hessian[3][2] = 8 * K1 * Q1;
-        hessian[3][3] = 4 * K1;
-
-        return hessian;
     }
 
     void PeriodicSquareExponential::setParameters(const Eigen::VectorXd& params)
@@ -169,60 +139,23 @@ namespace covariance_functions
         Eigen::ArrayXXd distanceXY = squareDistanceXY.sqrt();
 
         // Square Exponential Kernel
-        E0 = squareDistanceXY / pow(lsSE0, 2);
-        K0 = svSE0 * (-0.5 * E0).exp();
+        Eigen::ArrayXXd E0 = squareDistanceXY / pow(lsSE0, 2);
+        Eigen::ArrayXXd K0 = svSE0 * (-0.5 * E0).exp();
 
         // Periodic Kernel
-        P1 = (M_PI * distanceXY / plP);
-        S1 = P1.sin() / lsP;
-        Q1 = S1.square();
-        K1 = svP * (-2 * Q1).exp();
+        Eigen::ArrayXXd P1 = (M_PI * distanceXY / plP);
+        Eigen::ArrayXXd S1 = P1.sin() / lsP;
+        Eigen::ArrayXXd Q1 = S1.square();
+        Eigen::ArrayXXd K1 = svP * (-2 * Q1).exp();
 
         // Square Exponential Kernel
-        E2 = squareDistanceXY / pow(lsSE1, 2);
-        K2 = svSE1 * (-0.5 * E2).exp();
+        Eigen::ArrayXXd E2 = squareDistanceXY / pow(lsSE1, 2);
+        Eigen::ArrayXXd K2 = svSE1 * (-0.5 * E2).exp();
 
         // Combined Kernel
-        Eigen::MatrixXd K = K0 + K1 + K2;
+        Eigen::ArrayXXd K = K0 + K1 + K2;
 
         return K;
-    }
-
-    std::vector<Eigen::MatrixXd> PeriodicSquareExponential2::getGradient() const
-    {
-        // Derivatives
-        std::vector<Eigen::MatrixXd> derivatives(6);
-
-        derivatives[0] = K0 * E0;
-        derivatives[1] = 2 * K0;
-        derivatives[2] = 4 * K1 * Q1;
-        derivatives[3] = 2 * K1;
-        derivatives[4] = K2 * E2;
-        derivatives[5] = 2 * K2;
-
-        return derivatives;
-    }
-
-    std::vector< std::vector< Eigen::MatrixXd > > PeriodicSquareExponential2::getHessian() const
-    {
-        std::vector<std::vector<Eigen::MatrixXd>> hessian(6, std::vector<Eigen::MatrixXd>(6));
-
-        hessian[0][0] = K0 * ( E0 * E0 - 2 * E0);
-        hessian[0][1] = 2 * K0 * E0;
-        hessian[1][0] = 2 * K0 * E0;
-        hessian[1][1] = 4 * K0;
-
-        hessian[2][2] = K1 * ( 8 * Q1 * Q1 - 8 * Q1);
-        hessian[2][3] = 8 * K1 * Q1;
-        hessian[3][2] = 8 * K1 * Q1;
-        hessian[3][3] = 4 * K1;
-
-        hessian[4][4] = K2 * ( E2 * E2 - 2 * E2);
-        hessian[4][5] = 2 * K2 * E2;
-        hessian[5][4] = 2 * K2 * E2;
-        hessian[5][5] = 4 * K2;
-
-        return hessian;
     }
 
     void PeriodicSquareExponential2::setParameters(const Eigen::VectorXd& params)

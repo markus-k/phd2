@@ -112,8 +112,6 @@ GP::GP(const GP& that) :
     data_loc_(that.data_loc_),
     data_out_(that.data_out_),
     gram_matrix_(that.gram_matrix_),
-    gram_matrix_derivatives_(that.gram_matrix_derivatives_),
-    gram_matrix_hessian_(that.gram_matrix_hessian_),
     alpha_(that.alpha_),
     chol_gram_matrix_(that.chol_gram_matrix_),
     log_noise_sd_(that.log_noise_sd_),
@@ -161,8 +159,6 @@ GP& GP::operator=(const GP& that)
         data_loc_ = that.data_loc_;
         data_out_ = that.data_out_;
         gram_matrix_ = that.gram_matrix_;
-        gram_matrix_derivatives_ = that.gram_matrix_derivatives_;
-        gram_matrix_hessian_ = that.gram_matrix_hessian_;
         alpha_ = that.alpha_;
         chol_gram_matrix_ = that.chol_gram_matrix_;
         log_noise_sd_ = that.log_noise_sd_;
@@ -218,33 +214,6 @@ void GP::infer()
 
     // The data covariance matrix
     Eigen::MatrixXd data_cov = covFunc_->evaluate(data_loc_, data_loc_);
-    std::vector<Eigen::MatrixXd> cov_gradient = covFunc_->getGradient();
-    std::vector<std::vector<Eigen::MatrixXd>> cov_hessian = covFunc_->getHessian();
-
-    // store the covariance gradients
-    gram_matrix_derivatives_.resize(cov_gradient.size() + 1);
-    for (size_t i = 0; i < cov_gradient.size(); i++)
-    {
-        gram_matrix_derivatives_[i + 1].swap(cov_gradient[i]);
-    }
-    // noise derivative first
-    gram_matrix_derivatives_[0] = 2 * std::exp(2 * log_noise_sd_) *
-                                  Eigen::MatrixXd::Identity(data_cov.rows(), data_cov.cols());
-
-    // store the covariance Hessian
-    gram_matrix_hessian_.resize(cov_gradient.size() + 1);
-    for (size_t i = 0; i < cov_gradient.size(); i++)
-    {
-        gram_matrix_hessian_[i + 1].resize(cov_gradient.size() + 1);
-        for (size_t j = 0; j < cov_gradient.size(); j++)
-        {
-            gram_matrix_hessian_[i + 1][j + 1].swap(cov_hessian[i][j]);
-        }
-    }
-    // noise Hessian comes first
-    gram_matrix_hessian_[0].resize(cov_gradient.size() + 1);
-    gram_matrix_hessian_[0][0] = 4 * std::exp(2 * log_noise_sd_) *
-                                  Eigen::MatrixXd::Identity(data_cov.rows(), data_cov.cols());
 
     // compute and store the Gram matrix
     gram_matrix_.swap(data_cov);
@@ -399,55 +368,6 @@ GP::VectorMatrixPair GP::predict(const Eigen::MatrixXd& prior_cov,
     return std::make_pair(m, v);
 }
 
-double GP::neg_log_likelihood() const
-{
-    double result = 0;
-    if (gram_matrix_.rows() > 0)
-    {
-        // Implmented according to Equation (5.8) in Rasmussen & Williams, 2006
-        Eigen::MatrixXd Z = chol_gram_matrix_.matrixL();
-        result = data_out_.transpose() * chol_gram_matrix_.solve(data_out_);
-        result += chol_gram_matrix_.vectorD().array().log().sum();
-        result += data_out_.rows() * std::log(2 * M_PI);
-    }
-    return 0.5 * result;
-}
-
-Eigen::VectorXd GP::neg_log_likelihood_gradient() const
-{
-    Eigen::VectorXd result;
-    result = Eigen::VectorXd(gram_matrix_derivatives_.size());
-
-    Eigen::MatrixXd beta(gram_matrix_.rows(), gram_matrix_.cols());
-    // Implmented according to Equation (5.9) in Rasmussen & Williams, 2006
-    for (size_t i = 0; i < gram_matrix_derivatives_.size(); ++i)
-    {
-        beta = chol_gram_matrix_.solve(gram_matrix_derivatives_[i]);
-        result[i] = -0.5 * (alpha_.transpose() * gram_matrix_derivatives_[i] * alpha_ -
-                            beta.trace());
-    }
-    return result;
-}
-
-Eigen::MatrixXd GP::neg_log_likelihood_hessian() const
-{
-    Eigen::MatrixXd result(gram_matrix_derivatives_.size(), gram_matrix_derivatives_.size());
-    for (size_t i = 0; i < gram_matrix_derivatives_.size(); ++i)
-    {
-        for (size_t j = 0; j < gram_matrix_derivatives_.size(); ++j)
-        {
-        result(i,j) = alpha_.transpose() * gram_matrix_derivatives_[i] * chol_gram_matrix_.solve(gram_matrix_derivatives_[j]) * alpha_;
-        if (gram_matrix_hessian_[i][j].rows() != 0)
-        {
-            result(i,j) -= 0.5 * alpha_.transpose() * gram_matrix_hessian_[i][j] * alpha_;
-            result(i,j) += 0.5 * chol_gram_matrix_.solve(gram_matrix_hessian_[i][j]).trace();
-        }
-        result(i,j) -= 0.5 * (chol_gram_matrix_.solve(gram_matrix_derivatives_[i]) * chol_gram_matrix_.solve(gram_matrix_derivatives_[j])).trace();
-        }
-    }
-    return result;
-}
-
 void GP::setHyperParameters(const Eigen::VectorXd& hyperParameters)
 {
     assert(hyperParameters.rows() == covFunc_->getParameterCount() + covFunc_->getExtraParameterCount() + 1 &&
@@ -482,19 +402,6 @@ void GP::setCovarianceHyperParameters(const Eigen::VectorXd& hyperParameters)
            "setCovarianceHyperParameters()!");
     covFunc_->setParameters(hyperParameters);
     infer();
-}
-
-Eigen::MatrixXd GP::optimizeHyperParameters(double learning_rate) const
-{
-    Eigen::VectorXd hypers(covFunc_->getParameterCount() + 1);
-    hypers << log_noise_sd_, covFunc_->getParameters();
-
-    Eigen::LDLT<Eigen::MatrixXd> chol_hessian = neg_log_likelihood_hessian().ldlt();
-    hypers = hypers - learning_rate*chol_hessian.solve(neg_log_likelihood_gradient());
-
-    Eigen::VectorXd extHypers(covFunc_->getParameterCount() + covFunc_->getExtraParameterCount() + 1);
-    extHypers << hypers, covFunc_->getExtraParameters();
-    return extHypers;
 }
 
 void GP::enableExplicitTrend()
