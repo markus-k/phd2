@@ -64,8 +64,6 @@ private:
     Eigen::VectorXd data_loc_;
     Eigen::VectorXd data_out_;
     Eigen::MatrixXd gram_matrix_;
-    std::vector<Eigen::MatrixXd> gram_matrix_derivatives_;
-    std::vector<std::vector<Eigen::MatrixXd>> gram_matrix_hessian_;
     Eigen::VectorXd alpha_;
     Eigen::LDLT<Eigen::MatrixXd> chol_gram_matrix_;
     double log_noise_sd_;
@@ -168,30 +166,6 @@ public:
                              const Eigen::MatrixXd& phi = Eigen::MatrixXd()) const;
 
     /*!
-     * Calculates the negative log likelihood.
-     *
-     * This function is used for model selection and optimization of hyper
-     * parameters. The calculations are completely done on the cached datapoints.
-     */
-    double neg_log_likelihood() const;
-
-    /*!
-     * Calculates the derivative of the negative log likelihood.
-     *
-     * This function is used for model selection and optimization of hyper
-     * parameters. The calculations are completely done on the cached datapoints.
-     */
-    Eigen::VectorXd neg_log_likelihood_gradient() const;
-
-    /*!
-     * Calculates the second derivative of the negative log likelihood.
-     *
-     * This function is used for model selection and optimization of hyper
-     * parameters. The calculations are completely done on the cached datapoints.
-     */
-    Eigen::MatrixXd neg_log_likelihood_hessian() const;
-
-    /*!
      * Sets the hyperparameters to the given vector.
      */
     void setHyperParameters(const Eigen::VectorXd& hyperParameters);
@@ -205,11 +179,6 @@ public:
      * Sets the covariance hyperparameters to the given vector.
      */
     void setCovarianceHyperParameters(const Eigen::VectorXd& hyperParameters);
-
-    /*!
-     * Optimizes the hyperparameters with Newton's method and a given learning rate
-     */
-    Eigen::MatrixXd optimizeHyperParameters(double learning_rate) const;
 
     /*!
      * Enables the use of a explicit linear basis function.
