@@ -60,24 +60,20 @@ namespace covariance_functions
         // This is because all the operations act elementwise.
 
         // Compute Distances
-        Eigen::ArrayXXd squareDistanceXY = math_tools::squareDistance(
-            x.transpose(), y.transpose());
-        Eigen::ArrayXXd distanceXY = squareDistanceXY.sqrt();
+        Eigen::ArrayXXd squareDistanceXY = math_tools::squareDistance( x.transpose(), y.transpose());
 
         // Square Exponential Kernel
-        Eigen::ArrayXXd E0 = squareDistanceXY / pow(lsSE0, 2);
-        Eigen::ArrayXXd K0 = svSE0 * (-0.5 * E0).exp();
+        Eigen::ArrayXXd K0 = squareDistanceXY / pow(lsSE0, 2);
+        K0 = svSE0 * (-0.5 * K0).exp();
 
         // Periodic Kernel
-        Eigen::ArrayXXd P1 = (M_PI * distanceXY / plP);
-        Eigen::ArrayXXd S1 = P1.sin() / lsP;
-        Eigen::ArrayXXd Q1 = S1.square();
-        Eigen::ArrayXXd K1 = svP * (-2 * Q1).exp();
+        Eigen::ArrayXXd K1 = (M_PI * squareDistanceXY.sqrt() / plP);
+        K1 = K1.sin() / lsP;
+        K1 = K1.square();
+        K1 = svP * (-2 * K1).exp();
 
         // Combined Kernel
-        Eigen::ArrayXXd K = K0 + K1;
-
-        return K;
+        return K0 + K1;
     }
 
     void PeriodicSquareExponential::setParameters(const Eigen::VectorXd& params)
@@ -134,28 +130,24 @@ namespace covariance_functions
         // This is because all the operations act elementwise.
 
         // Compute Distances
-        Eigen::ArrayXXd squareDistanceXY = math_tools::squareDistance(
-                                               x.transpose(), y.transpose());
-        Eigen::ArrayXXd distanceXY = squareDistanceXY.sqrt();
+        Eigen::ArrayXXd squareDistanceXY = math_tools::squareDistance( x.transpose(), y.transpose());
 
         // Square Exponential Kernel
-        Eigen::ArrayXXd E0 = squareDistanceXY / pow(lsSE0, 2);
-        Eigen::ArrayXXd K0 = svSE0 * (-0.5 * E0).exp();
+        Eigen::ArrayXXd K0 = squareDistanceXY / pow(lsSE0, 2);
+        K0 = svSE0 * (-0.5 * K0).exp();
 
         // Periodic Kernel
-        Eigen::ArrayXXd P1 = (M_PI * distanceXY / plP);
-        Eigen::ArrayXXd S1 = P1.sin() / lsP;
-        Eigen::ArrayXXd Q1 = S1.square();
-        Eigen::ArrayXXd K1 = svP * (-2 * Q1).exp();
+        Eigen::ArrayXXd K1 = (M_PI * squareDistanceXY.sqrt() / plP);
+        K1 = K1.sin() / lsP;
+        K1 = K1.square();
+        K1 = svP * (-2 * K1).exp();
 
         // Square Exponential Kernel
-        Eigen::ArrayXXd E2 = squareDistanceXY / pow(lsSE1, 2);
-        Eigen::ArrayXXd K2 = svSE1 * (-0.5 * E2).exp();
+        Eigen::ArrayXXd K2 = squareDistanceXY / pow(lsSE1, 2);
+        K2 = svSE1 * (-0.5 * K2).exp();
 
         // Combined Kernel
-        Eigen::ArrayXXd K = K0 + K1 + K2;
-
-        return K;
+        return K0 + K1 + K2;
     }
 
     void PeriodicSquareExponential2::setParameters(const Eigen::VectorXd& params)
