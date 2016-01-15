@@ -354,7 +354,7 @@ bool Star::Find(const usImage *pImg, int searchRegion, int base_x, int base_y, F
         double const gain = .5; // electrons per ADU, nominal
         SNR = n > 0 ? mass / sqrt(mass / gain + sigma2_bg * (double) n * (1.0 + 1.0 / (double) nbg)) : 0.0;
 
-        double const LOW_SNR = 2.0;
+        double const LOW_SNR = 3.0;
 
         // a few scattered pixels over threshold can give a false positive
         // avoid this by requiring the smoothed peak value to be above the threshold
