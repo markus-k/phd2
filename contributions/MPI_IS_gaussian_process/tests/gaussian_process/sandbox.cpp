@@ -172,7 +172,7 @@ int main(int argc, char** argv)
     GP gp(1e0, covariance_function);
 
     gp.enableExplicitTrend();
-    gp.enableOutputProjection(output_covariance_function);
+//     gp.enableOutputProjection(output_covariance_function);
 
     begin = std::clock();
     gp.infer(time, meas);
@@ -180,12 +180,15 @@ int main(int argc, char** argv)
     elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
     std::cout << "time for infer: " << elapsed_secs << " s." << std::endl;
 
-    begin = std::clock();
-    gp.inferSD(time, meas, 256);
-    end = std::clock();
-    elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-    std::cout << "time for inferSD: " << elapsed_secs << " s." << std::endl;
+//     begin = std::clock();
+//     gp.inferSD(time, meas, 256);
+//     end = std::clock();
+//     elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+//     std::cout << "time for inferSD: " << elapsed_secs << " s." << std::endl;
 
+    gp.infer(time, meas, 0.01*time);
+
+    gp.inferSD(time, meas, 256, 0.01*time);
 
     int M = 512; // number of prediction points
     Eigen::VectorXd locations = Eigen::VectorXd::LinSpaced(M, 0, time.maxCoeff() + 1000);
