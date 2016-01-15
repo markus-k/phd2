@@ -241,8 +241,9 @@ bool Star::Find(const usImage *pImg, int searchRegion, int base_x, int base_y, F
         }
 
         // meaure noise in the annulus with inner radius A and outer radius B
-        int const A = 7;   // inner radius
-        int const B = 12;  // outer radius
+        /* DON'T MERGE THESE CHANGES, THEY ARE ONLY FOR INDOOR TESTING WITH TOO LARGE STARS */
+        int const A = 10;   // inner radius
+        int const B = 15;  // outer radius
         int const A2 = A * A;
         int const B2 = B * B;
 
@@ -354,7 +355,7 @@ bool Star::Find(const usImage *pImg, int searchRegion, int base_x, int base_y, F
         double const gain = .5; // electrons per ADU, nominal
         SNR = n > 0 ? mass / sqrt(mass / gain + sigma2_bg * (double) n * (1.0 + 1.0 / (double) nbg)) : 0.0;
 
-        double const LOW_SNR = 2.0;
+        double const LOW_SNR = 3.0;
 
         // a few scattered pixels over threshold can give a false positive
         // avoid this by requiring the smoothed peak value to be above the threshold
