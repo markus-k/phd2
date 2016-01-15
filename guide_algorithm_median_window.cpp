@@ -149,9 +149,9 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
     double prediction_gain_;
     double differential_gain_;
     double last_timestamp_;
-    double filtered_signal_;
     double mixing_parameter_;
     double stored_control_;
+    double last_prediction_end_;
 
     int min_nb_element_for_inference;
 
@@ -163,9 +163,9 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
       prediction_gain_(0.0),
       differential_gain_(0.0),
       last_timestamp_(0.0),
-      filtered_signal_(0.0),
       mixing_parameter_(0.0),
       stored_control_(0.0),
+      last_prediction_end_(0.0),
       min_nb_element_for_inference(0)
     {
         circular_buffer_parameters.push_front(data_points());
@@ -402,8 +402,6 @@ void GuideAlgorithmMedianWindow::StoreControls(double control_input)
 
 double GuideAlgorithmMedianWindow::PredictDriftError()
 {
-    int delta_controller_time_ms = pFrame->RequestedExposureDuration();
-
     int N = parameters->get_number_of_measurements();
 
     // initialize the different vectors needed for the GP
@@ -452,8 +450,23 @@ double GuideAlgorithmMedianWindow::PredictDriftError()
 
     mean_slope = (diff_gear_error_window / diff_timestamps_window).mean();
 
+    int delta_controller_time_ms = pFrame->RequestedExposureDuration();
+
+    if ( parameters->last_prediction_end_ < 1.0 )
+    {
+        parameters->last_prediction_end_ = parameters->timer_.Time();
+    }
+
+    // prediction from the last endpoint to the prediction point
+    double prediction_length = (parameters->timer_.Time() + delta_controller_time_ms - parameters->last_prediction_end_) / 1000.0;
+
+    parameters->last_prediction_end_ = parameters->timer_.Time() + delta_controller_time_ms; // store current endpoint
+
+    assert(prediction_length < 100);
+    assert(parameters->control_gain_ < 10);
+
     // the prediction is consisting of GP prediction and the linear drift
-    return (delta_controller_time_ms / 1000.0)*mean_slope;
+    return (prediction_length / 1000.0) * mean_slope;
 }
 
 double GuideAlgorithmMedianWindow::result(double input)
