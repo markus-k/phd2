@@ -132,7 +132,7 @@ void Mount::MountConfigDialogPane::LayoutControls(wxPanel *pParent, BrainCtrlIdM
         {
             _("None"), _("Hysteresis"), _("Lowpass"), _("Lowpass2"), _("Resist Switch"),
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
-        _("Gaussian Process"), _("Linear Regression"),
+            _("Gaussian Process"), _("Median Window")
 #endif
         };
 
@@ -161,7 +161,7 @@ void Mount::MountConfigDialogPane::LayoutControls(wxPanel *pParent, BrainCtrlIdM
         {
             _("None"), _("Hysteresis"), _("Lowpass"), _("Lowpass2"), _("Resist Switch"),
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
-        _("Gaussian Process"), _("Linear Regression"),
+            _("Gaussian Process"), _("Median Window")
 #endif
         };
         width = StringArrayWidth(yAlgorithms, WXSIZEOF(yAlgorithms));
@@ -430,7 +430,7 @@ bool Mount::CreateGuideAlgorithm(int guideAlgorithm, Mount *mount, GuideAxis axi
             case GUIDE_ALGORITHM_RESIST_SWITCH:
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
             case GUIDE_ALGORITHM_GAUSSIAN_PROCESS:
-            case GUIDE_ALGORITHM_LINEAR_REGRESSION:
+            case GUIDE_ALGORITHM_MEDIAN_WINDOW:
 #endif
                 break;
             case GUIDE_ALGORITHM_NONE:
@@ -468,8 +468,8 @@ bool Mount::CreateGuideAlgorithm(int guideAlgorithm, Mount *mount, GuideAxis axi
         case GUIDE_ALGORITHM_GAUSSIAN_PROCESS:
             *ppAlgorithm = new GuideGaussianProcess(mount, axis);
             break;
-        case GUIDE_ALGORITHM_LINEAR_REGRESSION:
-            *ppAlgorithm = new GuideLinearRegression(mount, axis);
+        case GUIDE_ALGORITHM_MEDIAN_WINDOW:
+            *ppAlgorithm = new GuideAlgorithmMedianWindow(mount, axis);
             break;
 #endif
 
@@ -1452,7 +1452,7 @@ wxString Mount::GetSettingsSummary()
     wxString algorithms[] = {
         _T("None"), _T("Hysteresis"), _T("Lowpass"), _T("Lowpass2"), _T("Resist Switch"),
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
-        _T("Gaussian Process"), _("Linear Regression")
+        _T("Gaussian Process"), _("Median Window")
 #endif
     };
     wxString auxMountStr = wxEmptyString;
