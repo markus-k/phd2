@@ -1450,7 +1450,10 @@ wxString Mount::GetSettingsSummary()
 {
     // return a loggable summary of current mount settings
     wxString algorithms[] = {
-        _T("None"),_T("Hysteresis"),_T("Lowpass"),_T("Lowpass2"), _T("Resist Switch")
+        _T("None"), _T("Hysteresis"), _T("Lowpass"), _T("Lowpass2"), _T("Resist Switch"),
+#if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
+        _T("Gaussian Process"), _("Linear Regression")
+#endif
     };
     wxString auxMountStr = wxEmptyString;
     if (m_Name == _("On Camera") && pPointingSource && pPointingSource->IsConnected() && pPointingSource->CanReportPosition())
