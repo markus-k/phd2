@@ -241,7 +241,7 @@ bool GuideAlgorithmMedianWindow::SetControlGain(double control_gain)
 
     try
     {
-        if (control_gain < 0 || control_gain > 1)
+        if (control_gain < 0 || control_gain > 2.0)
         {
             throw ERROR_INFO("invalid control gain");
         }
@@ -266,7 +266,7 @@ bool GuideAlgorithmMedianWindow::SetPredictionGain(double prediction_gain)
 
     try
     {
-        if (prediction_gain < 0 || prediction_gain > 1)
+        if (prediction_gain < 0 || prediction_gain > 2.0)
         {
             throw ERROR_INFO("invalid prediction gain");
         }
@@ -291,7 +291,7 @@ bool GuideAlgorithmMedianWindow::SetDifferentialGain(double differential_gain)
 
     try
     {
-        if (differential_gain < 0 || differential_gain > 1)
+        if (differential_gain < 0 || differential_gain > 20.0)
         {
             throw ERROR_INFO("invalid differential gain");
         }
