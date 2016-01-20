@@ -50,6 +50,8 @@ class GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindowDialogPane : public 
 {
     GuideAlgorithmMedianWindow *m_pGuideAlgorithm;
     wxSpinCtrlDouble *m_pControlGain;
+    wxSpinCtrlDouble *m_pPredictionGain;
+    wxSpinCtrlDouble *m_pDifferentialGain;
     wxSpinCtrl       *m_pNbMeasurementMin;
 
 public:
@@ -59,10 +61,21 @@ public:
         m_pGuideAlgorithm = pGuideAlgorithm;
 
         int width = StringWidth(_T("00000.00"));
+
         m_pControlGain = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                               wxDefaultPosition,wxSize(width+30, -1),
-                                              wxSP_ARROW_KEYS, 0.0, 1.0, 0.8, 0.05);
+                                              wxSP_ARROW_KEYS, 0.0, 2.0, 0.5, 0.05);
         m_pControlGain->SetDigits(2);
+
+        m_pPredictionGain = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
+                                              wxDefaultPosition,wxSize(width+30, -1),
+                                              wxSP_ARROW_KEYS, 0.0, 2.0, 0.5, 0.05);
+        m_pPredictionGain->SetDigits(2);
+
+        m_pDifferentialGain = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
+                                                 wxDefaultPosition,wxSize(width+30, -1),
+                                                 wxSP_ARROW_KEYS, 0.0, 20.0, 0.5, 0.5);
+        m_pDifferentialGain->SetDigits(2);
 
         // nb elements before starting the inference
         m_pNbMeasurementMin = new wxSpinCtrl(pParent, wxID_ANY, wxEmptyString,
@@ -71,7 +84,15 @@ public:
 
         DoAdd(_("Control Gain"), m_pControlGain,
               _("The control gain defines how aggressive the controller is. It is the amount of pointing error that is "
-                "fed back to the system. Default = 0.8"));
+                "fed back to the system. Default = 0.5"));
+
+        DoAdd(_("Prediction Gain"), m_pPredictionGain,
+              _("The prediction gain defines how much of the prediction should be used to compensate the drift error. "
+              "Default = 1.0"));
+
+        DoAdd(_("Differential Gain"), m_pDifferentialGain,
+              _("The differential gain is used to reduce overshoot. It tries to slow down the control system, but if set "
+              " too high, it can lead to noise amplification. Default = 5.0"));
 
         DoAdd(_("Min data points (inference)"), m_pNbMeasurementMin,
               _("Minimal number of measurements to start using the Median Window. If there are too little data points, "
@@ -90,6 +111,8 @@ public:
     virtual void LoadValues(void)
     {
       m_pControlGain->SetValue(m_pGuideAlgorithm->GetControlGain());
+      m_pPredictionGain->SetValue(m_pGuideAlgorithm->GetPredictionGain());
+      m_pDifferentialGain->SetValue(m_pGuideAlgorithm->GetDifferentialGain());
       m_pNbMeasurementMin->SetValue(m_pGuideAlgorithm->GetNbMeasurementsMin());
     }
 
@@ -97,6 +120,8 @@ public:
     virtual void UnloadValues(void)
     {
       m_pGuideAlgorithm->SetControlGain(m_pControlGain->GetValue());
+      m_pGuideAlgorithm->SetPredictionGain(m_pPredictionGain->GetValue());
+      m_pGuideAlgorithm->SetDifferentialGain(m_pDifferentialGain->GetValue());
       m_pGuideAlgorithm->SetNbElementForInference(m_pNbMeasurementMin->GetValue());
     }
 
@@ -121,6 +146,8 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
     wxStopWatch timer_;
     double control_signal_;
     double control_gain_;
+    double prediction_gain_;
+    double differential_gain_;
     double last_timestamp_;
     double filtered_signal_;
     double mixing_parameter_;
@@ -133,6 +160,8 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
       timer_(),
       control_signal_(0.0),
       control_gain_(0.0),
+      prediction_gain_(0.0),
+      differential_gain_(0.0),
       last_timestamp_(0.0),
       filtered_signal_(0.0),
       mixing_parameter_(0.0),
@@ -173,8 +202,10 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
 };
 
 
-static const double DefaultControlGain = 0.5;           // control gain
-static const int    DefaultNbMinPointsForInference = 25; // minimal number of points for doing the inference
+static const double DefaultControlGain = 0.5;
+static const double DefaultPredictionGain = 1.0;
+static const double DefaultDifferentialGain = 5.0;
+static const int    DefaultNbMinPointsForInference = 25;
 
 GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindow(Mount *pMount, GuideAxis axis)
     : GuideAlgorithm(pMount, axis),
@@ -212,7 +243,7 @@ bool GuideAlgorithmMedianWindow::SetControlGain(double control_gain)
     {
         if (control_gain < 0 || control_gain > 1)
         {
-            throw ERROR_INFO("invalid controlGain");
+            throw ERROR_INFO("invalid control gain");
         }
 
         parameters->control_gain_ = control_gain;
@@ -225,6 +256,56 @@ bool GuideAlgorithmMedianWindow::SetControlGain(double control_gain)
     }
 
     pConfig->Profile.SetDouble(GetConfigPath() + "/mw_control_gain", parameters->control_gain_);
+
+    return error;
+}
+
+bool GuideAlgorithmMedianWindow::SetPredictionGain(double prediction_gain)
+{
+    bool error = false;
+
+    try
+    {
+        if (prediction_gain < 0 || prediction_gain > 1)
+        {
+            throw ERROR_INFO("invalid prediction gain");
+        }
+
+        parameters->prediction_gain_ = prediction_gain;
+    }
+    catch (wxString Msg)
+    {
+        POSSIBLY_UNUSED(Msg);
+        error = true;
+        parameters->prediction_gain_ = DefaultPredictionGain;
+    }
+
+    pConfig->Profile.SetDouble(GetConfigPath() + "/mw_prediction_gain", parameters->prediction_gain_);
+
+    return error;
+}
+
+bool GuideAlgorithmMedianWindow::SetDifferentialGain(double differential_gain)
+{
+    bool error = false;
+
+    try
+    {
+        if (differential_gain < 0 || differential_gain > 1)
+        {
+            throw ERROR_INFO("invalid differential gain");
+        }
+
+        parameters->differential_gain_ = differential_gain;
+    }
+    catch (wxString Msg)
+    {
+        POSSIBLY_UNUSED(Msg);
+        error = true;
+        parameters->differential_gain_ = DefaultDifferentialGain;
+    }
+
+    pConfig->Profile.SetDouble(GetConfigPath() + "/mw_differential_gain", parameters->differential_gain_);
 
     return error;
 }
@@ -259,6 +340,16 @@ double GuideAlgorithmMedianWindow::GetControlGain() const
     return parameters->control_gain_;
 }
 
+double GuideAlgorithmMedianWindow::GetPredictionGain() const
+{
+    return parameters->prediction_gain_;
+}
+
+double GuideAlgorithmMedianWindow::GetDifferentialGain() const
+{
+    return parameters->differential_gain_;
+}
+
 int GuideAlgorithmMedianWindow::GetNbMeasurementsMin() const
 {
     return parameters->min_nb_element_for_inference;
@@ -267,11 +358,9 @@ int GuideAlgorithmMedianWindow::GetNbMeasurementsMin() const
 wxString GuideAlgorithmMedianWindow::GetSettingsSummary()
 {
     static const char* format =
-      "Control Gain = %.3f\n";
+    "Control Gain = %.3f\nPrediction Gain = %.3f\nDifferential Gain = %.3f\n";
 
-    return wxString::Format(
-      format,
-      GetControlGain());
+    return wxString::Format(format, GetControlGain(), GetPredictionGain(), GetDifferentialGain());
 }
 
 
@@ -375,7 +464,7 @@ double GuideAlgorithmMedianWindow::result(double input)
     parameters->control_signal_ = parameters->control_gain_*input; // add the measured part of the controller
 
     double difference = 0;
-    
+
     if (parameters->get_number_of_measurements() > 1)
     {
         difference = (parameters->get_last_point().measurement - parameters->get_second_last_point().measurement)
@@ -387,18 +476,18 @@ double GuideAlgorithmMedianWindow::result(double input)
         parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference)
     {
         drift_prediction = PredictDriftError();
-		parameters->control_signal_ += drift_prediction; // add in the prediction
-        parameters->control_signal_ += 10 * difference; // D-component of PD controller
+		parameters->control_signal_ += parameters->prediction_gain_ * drift_prediction; // add in the prediction
+		parameters->control_signal_ += parameters->differential_gain_ * difference; // D-component of PD controller
 
         // check if the input points in the wrong direction, but only if the error isn't too big
-        if (std::abs(input) < 40.0 && parameters->control_signal_ * drift_prediction < 0) 
+        if (std::abs(input) < 10.0 && parameters->control_signal_ * drift_prediction < 0)
         {
             parameters->control_signal_ = 0; // prevent backlash overshooting
         }
 	}
     else
     {
-        parameters->control_signal_ += 10 * difference; // D-component of PD controller
+        parameters->control_signal_ += parameters->differential_gain_ * difference; // D-component of PD controller
         parameters->control_signal_ *= 0.5; // scale down if no prediction is available
     }
 
@@ -408,7 +497,7 @@ double GuideAlgorithmMedianWindow::result(double input)
     Debug.AddLine("Median window guider: input: %f, diff: %f, prediction: %f, control: %f",
         input, difference, drift_prediction, parameters->control_signal_);
 
-    // write the GP output to a file for easy analyzation
+    // write the data to a file for easy debugging
 #if MW_DEBUG_FILE_
     int N = parameters->get_number_of_measurements();
 
