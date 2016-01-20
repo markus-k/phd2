@@ -854,13 +854,16 @@ void GuideGaussianProcess::UpdateGP()
     Eigen::VectorXd variances(N-1);
     Eigen::VectorXd sum_controls(N-1);
 
+    double sum_control = 0;
+
     // transfer the data from the circular buffer to the Eigen::Vectors
     for(size_t i = 0; i < N-1; i++)
     {
+        sum_control += parameters->circular_buffer_parameters[i].control; // sum over the control signals
         timestamps(i) = parameters->circular_buffer_parameters[i].timestamp;
         measurements(i) = parameters->circular_buffer_parameters[i].measurement;
         variances(i) = parameters->circular_buffer_parameters[i].variance;
-        sum_controls(i) += parameters->circular_buffer_parameters[i].control; // sum over the control signals
+        sum_controls(i) = sum_control;
     }
 
     Eigen::VectorXd gear_error(N-1);
@@ -978,7 +981,7 @@ double GuideGaussianProcess::FilterState(double input, double noise)
     double gp_prediction = mean(1) - mean(0);
     double gp_variance = var(0,0) + var(1,1) - var(0,1);
 
-    double predictive_mean = parameters->mean_kf_ - parameters->get_last_point().control + gp_prediction;
+    double predictive_mean = parameters->mean_kf_ - parameters->control_signal_ + gp_prediction;
     double predictive_var = parameters->var_kf_ + gp_variance + drift_variance;
 
     double residual = input - predictive_mean;
@@ -1008,6 +1011,7 @@ double GuideGaussianProcess::PredictGearError()
 
     double p1 = prediction(1);
     double p0 = prediction(0);
+    assert(std::abs(p1 - p0) < 10000);
     assert(!math_tools::isNaN(p1 - p0));
 
     // the prediction is consisting of GP prediction and the linear drift
@@ -1098,7 +1102,9 @@ double GuideGaussianProcess::result(double input)
     }
     outfile.close();
 #endif
+    Debug.AddLine("GP Guider generated %f from input %f.", parameters->control_signal_, input);
 
+    assert(std::abs(parameters->control_signal_) < 100);
     assert(!math_tools::isNaN(parameters->control_signal_));
     return parameters->control_signal_;
 }
