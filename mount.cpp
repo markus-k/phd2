@@ -286,7 +286,7 @@ MountConfigDialogCtrlSet *Mount::GetConfigDialogCtrlSet(wxWindow *pParent, Mount
     return new MountConfigDialogCtrlSet(pParent, pMount, pAdvancedDialog, CtrlMap);
 }
 
-// These are only controls that are exported to other panes - all the other dynamically updated controls are handled in 
+// These are only controls that are exported to other panes - all the other dynamically updated controls are handled in
 // ConfigDialogPane
 MountConfigDialogCtrlSet::MountConfigDialogCtrlSet(wxWindow *pParent, Mount *pMount, AdvancedDialog *pAdvancedDialog, BrainCtrlIdMap& CtrlMap) :
 ConfigDialogCtrlSet(pParent, pAdvancedDialog, CtrlMap)
@@ -451,7 +451,7 @@ bool Mount::CreateGuideAlgorithm(int guideAlgorithm, Mount *mount, GuideAxis axi
 
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
         case GUIDE_ALGORITHM_GAUSSIAN_PROCESS:
-            *ppAlgorithm = new GuideGaussianProcess(mount, axis);
+            *ppAlgorithm = new GuideAlgorithmGaussianProcess(mount, axis);
             break;
         case GUIDE_ALGORITHM_MEDIAN_WINDOW:
             *ppAlgorithm = new GuideAlgorithmMedianWindow(mount, axis);
