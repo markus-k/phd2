@@ -334,8 +334,6 @@ set(guiding_SRC
 if(${GUIDING_GAUSSIAN_PROCESS})
   set(guiding_SRC
       ${guiding_SRC}
-      ${phd_src_dir}/UDPGuidingInteraction.cpp
-      ${phd_src_dir}/UDPGuidingInteraction.h
       ${phd_src_dir}/guide_algorithm_gaussian_process.cpp
       ${phd_src_dir}/guide_algorithm_gaussian_process.h
       ${phd_src_dir}/guide_algorithm_median_window.cpp
