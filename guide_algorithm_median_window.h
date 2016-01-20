@@ -61,7 +61,11 @@ private:
 protected:
 
     double GetControlGain() const;
+    double GetPredictionGain() const;
+    double GetDifferentialGain() const;
     bool SetControlGain(double control_gain);
+    bool SetPredictionGain(double prediction_gain);
+    bool SetDifferentialGain(double differential_gain);
 
     // minimum amount of points for starting the inference
     bool SetNbElementForInference(int nb_elements);
