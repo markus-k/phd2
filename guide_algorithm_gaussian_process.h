@@ -49,11 +49,11 @@
 
 class wxStopWatch;
 
-class GuideGaussianProcess : public GuideAlgorithm
+class GuideAlgorithmGaussianProcess : public GuideAlgorithm
 {
 private:
     struct gp_guide_parameters;
-    class GuideGaussianProcessDialogPane;
+    class GuideAlgorithmGaussianProcessDialogPane;
 
     gp_guide_parameters* parameters;
 
@@ -96,8 +96,8 @@ protected:
 
 
 public:
-    GuideGaussianProcess(Mount *pMount, GuideAxis axis);
-    virtual ~GuideGaussianProcess(void);
+    GuideAlgorithmGaussianProcess(Mount *pMount, GuideAxis axis);
+    virtual ~GuideAlgorithmGaussianProcess(void);
     virtual GUIDE_ALGORITHM Algorithm(void);
 
     virtual ConfigDialogPane *GetConfigDialogPane(wxWindow *pParent);

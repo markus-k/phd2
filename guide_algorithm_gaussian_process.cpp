@@ -45,9 +45,9 @@
 #include "gaussian_process.h"
 #include "covariance_functions.h"
 
-class GuideGaussianProcess::GuideGaussianProcessDialogPane : public ConfigDialogPane
+class GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcessDialogPane : public ConfigDialogPane
 {
-    GuideGaussianProcess *m_pGuideAlgorithm;
+    GuideAlgorithmGaussianProcess *m_pGuideAlgorithm;
     wxSpinCtrlDouble *m_pControlGain;
     wxSpinCtrl       *m_pNbPointsInference;
     wxSpinCtrl       *m_pNbPointsOptimisation;
@@ -67,7 +67,7 @@ class GuideGaussianProcess::GuideGaussianProcessDialogPane : public ConfigDialog
     wxCheckBox       *m_checkboxComputePeriod;
 
 public:
-    GuideGaussianProcessDialogPane(wxWindow *pParent, GuideGaussianProcess *pGuideAlgorithm)
+    GuideAlgorithmGaussianProcessDialogPane(wxWindow *pParent, GuideAlgorithmGaussianProcess *pGuideAlgorithm)
       : ConfigDialogPane(_("Gaussian Process Guide Algorithm"),pParent)
     {
         m_pGuideAlgorithm = pGuideAlgorithm;
@@ -195,7 +195,7 @@ public:
               _("Optimize parameters with Newton steps"));
     }
 
-    virtual ~GuideGaussianProcessDialogPane(void)
+    virtual ~GuideAlgorithmGaussianProcessDialogPane(void)
     {
       // no need to destroy the widgets, this is done by the parent...
     }
@@ -266,7 +266,7 @@ struct gp_guiding_circular_datapoints
 
 
 // parameters of the GP guiding algorithm
-struct GuideGaussianProcess::gp_guide_parameters
+struct GuideAlgorithmGaussianProcess::gp_guide_parameters
 {
     typedef gp_guiding_circular_datapoints data_points;
     circular_buffer<data_points> circular_buffer_parameters;
@@ -371,7 +371,7 @@ static const double DefaultMixing                        = 0.5; // amount of GP 
 static const bool   DefaultOptimize                      = false;
 static const bool   DefaultComputePeriod                 = true;
 
-GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
+GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcess(Mount *pMount, GuideAxis axis)
     : GuideAlgorithm(pMount, axis),
       parameters(0)
 {
@@ -417,18 +417,18 @@ GuideGaussianProcess::GuideGaussianProcess(Mount *pMount, GuideAxis axis)
     reset();
 }
 
-GuideGaussianProcess::~GuideGaussianProcess(void)
+GuideAlgorithmGaussianProcess::~GuideAlgorithmGaussianProcess(void)
 {
     delete parameters;
 }
 
 
-ConfigDialogPane *GuideGaussianProcess::GetConfigDialogPane(wxWindow *pParent)
+ConfigDialogPane *GuideAlgorithmGaussianProcess::GetConfigDialogPane(wxWindow *pParent)
 {
-    return new GuideGaussianProcessDialogPane(pParent, this);
+    return new GuideAlgorithmGaussianProcessDialogPane(pParent, this);
 }
 
-bool GuideGaussianProcess::SetControlGain(double control_gain)
+bool GuideAlgorithmGaussianProcess::SetControlGain(double control_gain)
 {
     bool error = false;
 
@@ -453,7 +453,7 @@ bool GuideGaussianProcess::SetControlGain(double control_gain)
     return error;
 }
 
-bool GuideGaussianProcess::SetNbElementForInference(int nb_elements)
+bool GuideAlgorithmGaussianProcess::SetNbElementForInference(int nb_elements)
 {
     bool error = false;
 
@@ -478,7 +478,7 @@ bool GuideGaussianProcess::SetNbElementForInference(int nb_elements)
     return error;
 }
 
-bool GuideGaussianProcess::SetNbPointsOptimisation(int nb_points)
+bool GuideAlgorithmGaussianProcess::SetNbPointsOptimisation(int nb_points)
 {
     bool error = false;
 
@@ -503,7 +503,7 @@ bool GuideGaussianProcess::SetNbPointsOptimisation(int nb_points)
     return error;
 }
 
-bool GuideGaussianProcess::SetNbPointsForApproximation(int nb_points)
+bool GuideAlgorithmGaussianProcess::SetNbPointsForApproximation(int nb_points)
 {
     bool error = false;
 
@@ -528,7 +528,7 @@ bool GuideGaussianProcess::SetNbPointsForApproximation(int nb_points)
     return error;
 }
 
-bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyperparameters)
+bool GuideAlgorithmGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyperparameters)
 {
     if(hyperparameters.size() != 8)
         return false;
@@ -680,7 +680,7 @@ bool GuideGaussianProcess::SetGPHyperparameters(std::vector<double> const &hyper
     return error;
 }
 
-bool GuideGaussianProcess::SetMixingParameter(double mixing)
+bool GuideAlgorithmGaussianProcess::SetMixingParameter(double mixing)
 {
     bool error = false;
 
@@ -705,7 +705,7 @@ bool GuideGaussianProcess::SetMixingParameter(double mixing)
     return error;
 }
 
-bool GuideGaussianProcess::SetBoolOptimizeHyperparameters(bool active)
+bool GuideAlgorithmGaussianProcess::SetBoolOptimizeHyperparameters(bool active)
 {
   parameters->optimize_hyperparameters = active;
   pConfig->Profile.SetBoolean(GetConfigPath() + "/gp_optimize_hyperparameters", parameters->optimize_hyperparameters);
@@ -713,34 +713,34 @@ bool GuideGaussianProcess::SetBoolOptimizeHyperparameters(bool active)
 }
 
 
-bool GuideGaussianProcess::SetBoolComputePeriod(bool active)
+bool GuideAlgorithmGaussianProcess::SetBoolComputePeriod(bool active)
 {
   parameters->compute_period = active;
   pConfig->Profile.SetBoolean(GetConfigPath() + "/gp_compute_period", parameters->compute_period);
   return true;
 }
 
-double GuideGaussianProcess::GetControlGain() const
+double GuideAlgorithmGaussianProcess::GetControlGain() const
 {
     return parameters->control_gain_;
 }
 
-int GuideGaussianProcess::GetNbMeasurementsMin() const
+int GuideAlgorithmGaussianProcess::GetNbMeasurementsMin() const
 {
     return parameters->min_nb_element_for_inference;
 }
 
-int GuideGaussianProcess::GetNbPointsBetweenOptimisation() const
+int GuideAlgorithmGaussianProcess::GetNbPointsBetweenOptimisation() const
 {
     return parameters->min_points_for_optimisation;
 }
 
-int GuideGaussianProcess::GetNbPointsForApproximation() const
+int GuideAlgorithmGaussianProcess::GetNbPointsForApproximation() const
 {
     return parameters->points_for_approximation;
 }
 
-std::vector<double> GuideGaussianProcess::GetGPHyperparameters() const
+std::vector<double> GuideAlgorithmGaussianProcess::GetGPHyperparameters() const
 {
     // since the GP class works in log space, we have to exp() the parameters first.
     Eigen::VectorXd hyperparameters = parameters->gp_.getHyperParameters().array().exp();
@@ -750,22 +750,22 @@ std::vector<double> GuideGaussianProcess::GetGPHyperparameters() const
                                hyperparameters.data() + 8); // 8 parameters, therefore the last is at position 7
 }
 
-double GuideGaussianProcess::GetMixingParameter() const
+double GuideAlgorithmGaussianProcess::GetMixingParameter() const
 {
     return parameters->mixing_parameter_;
 }
 
-bool GuideGaussianProcess::GetBoolOptimizeHyperparameters() const
+bool GuideAlgorithmGaussianProcess::GetBoolOptimizeHyperparameters() const
 {
     return parameters->optimize_hyperparameters;
 }
 
-bool GuideGaussianProcess::GetBoolComputePeriod() const
+bool GuideAlgorithmGaussianProcess::GetBoolComputePeriod() const
 {
     return parameters->compute_period;
 }
 
-wxString GuideGaussianProcess::GetSettingsSummary()
+wxString GuideAlgorithmGaussianProcess::GetSettingsSummary()
 {
     static const char* format =
       "Control Gain = %.3f\n"
@@ -796,12 +796,12 @@ wxString GuideGaussianProcess::GetSettingsSummary()
 }
 
 
-GUIDE_ALGORITHM GuideGaussianProcess::Algorithm(void)
+GUIDE_ALGORITHM GuideAlgorithmGaussianProcess::Algorithm(void)
 {
     return GUIDE_ALGORITHM_GAUSSIAN_PROCESS;
 }
 
-void GuideGaussianProcess::HandleTimestamps()
+void GuideAlgorithmGaussianProcess::HandleTimestamps()
 {
     if (parameters->get_number_of_measurements() == 0)
     {
@@ -814,25 +814,25 @@ void GuideGaussianProcess::HandleTimestamps()
 }
 
 // adds a new measurement to the circular buffer that holds the data.
-void GuideGaussianProcess::HandleMeasurements(double input)
+void GuideAlgorithmGaussianProcess::HandleMeasurements(double input)
 {
     parameters->get_last_point().measurement = input;
 }
 
-void GuideGaussianProcess::HandleControls(double control_input)
+void GuideAlgorithmGaussianProcess::HandleControls(double control_input)
 {
     // don't forget to apply the stored control signals from the dark period
     parameters->get_last_point().control = control_input + parameters->stored_control_;
     parameters->stored_control_ = 0; // reset stored control since we applied it
 }
 
-void GuideGaussianProcess::StoreControls(double control_input)
+void GuideAlgorithmGaussianProcess::StoreControls(double control_input)
 {
     // sum up control inputs over the dark period
     parameters->stored_control_ += control_input;
 }
 
-void GuideGaussianProcess::HandleSNR(double SNR)
+void GuideAlgorithmGaussianProcess::HandleSNR(double SNR)
 {
     SNR = std::max(SNR, 3.4); // limit the minimal SNR
 
@@ -842,7 +842,7 @@ void GuideGaussianProcess::HandleSNR(double SNR)
     parameters->get_last_point().variance = standard_deviation * standard_deviation;
 }
 
-void GuideGaussianProcess::UpdateGP()
+void GuideAlgorithmGaussianProcess::UpdateGP()
 {
     clock_t begin = std::clock();
 
@@ -961,7 +961,7 @@ void GuideGaussianProcess::UpdateGP()
     Debug.AddLine("timings: init: %f, detrend: %f, fft: %f, gp: %f", time_init, time_detrend, time_fft, time_gp);
 }
 
-double GuideGaussianProcess::FilterState(double input, double noise)
+double GuideAlgorithmGaussianProcess::FilterState(double input, double noise)
 {
     double drift_variance = 1.0;
 
@@ -998,7 +998,7 @@ double GuideGaussianProcess::FilterState(double input, double noise)
     return updated_mean;
 }
 
-double GuideGaussianProcess::PredictGearError()
+double GuideAlgorithmGaussianProcess::PredictGearError()
 {
     int delta_controller_time_ms = pFrame->RequestedExposureDuration();
 
@@ -1018,7 +1018,7 @@ double GuideGaussianProcess::PredictGearError()
     return (p1 - p0);
 }
 
-double GuideGaussianProcess::result(double input)
+double GuideAlgorithmGaussianProcess::result(double input)
 {
 
     HandleMeasurements(input);
@@ -1109,7 +1109,7 @@ double GuideGaussianProcess::result(double input)
     return parameters->control_signal_;
 }
 
-double GuideGaussianProcess::deduceResult()
+double GuideAlgorithmGaussianProcess::deduceResult()
 {
     parameters->control_signal_ = 0;
     // check if we are allowed to use the GP
@@ -1192,7 +1192,7 @@ double GuideGaussianProcess::deduceResult()
     return parameters->control_signal_;
 }
 
-void GuideGaussianProcess::reset()
+void GuideAlgorithmGaussianProcess::reset()
 {
     parameters->clear();
     return;
