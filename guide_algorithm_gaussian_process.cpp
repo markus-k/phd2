@@ -1116,7 +1116,7 @@ double GuideAlgorithmGaussianProcess::deduceResult()
     if (parameters->min_nb_element_for_inference > 0 &&
         parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference)
     {
-        parameters->control_signal_ = parameters->control_gain_*FilterState(0, 1e6); // filter the state based on the GP
+        parameters->control_signal_ = 0; // don't use current state estimate, it's too faulty
         parameters->prediction_ = PredictGearError();
         parameters->control_signal_ += parameters->prediction_; // control based on prediction
     }
