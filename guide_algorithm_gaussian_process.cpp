@@ -1011,16 +1011,16 @@ double GuideAlgorithmGaussianProcess::PredictGearError()
 
     // prediction from the last endpoint to the prediction point
     Eigen::VectorXd next_location(2);
-    next_location << parameters->last_prediction_end_ / 1000.0,
-    (parameters->timer_.Time() + delta_controller_time_ms) / 1000.0;
+    double next_prediction_end = parameters->timer_.Time() + delta_controller_time_ms;
+    next_location << parameters->last_prediction_end_ / 1000.0, next_prediction_end / 1000.0;
     Eigen::VectorXd prediction = parameters->gp_.predictProjected(next_location).first;
 
     double p1 = prediction(1);
     double p0 = prediction(0);
-    assert(std::abs(p1 - p0) < 10000);
+    assert(std::abs(p1 - p0) < 100);
     assert(!math_tools::isNaN(p1 - p0));
 
-    parameters->last_prediction_end_ = next_location(1); // store current endpoint
+    parameters->last_prediction_end_ = next_prediction_end; // store current endpoint
 
     // the prediction is consisting of GP prediction and the linear drift
     return (p1 - p0);
@@ -1040,7 +1040,7 @@ double GuideAlgorithmGaussianProcess::result(double input)
         parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference)
     {
         UpdateGP(); // update the GP based on the new measurements
-        parameters->control_signal_ = parameters->control_gain_*FilterState(input, parameters->get_last_point().variance); // filter the state based on the GP
+        parameters->control_signal_ = parameters->control_gain_*input;
         parameters->prediction_ = PredictGearError();
         parameters->control_signal_ += parameters->mixing_parameter_*parameters->prediction_; // mix in the prediction
     }
