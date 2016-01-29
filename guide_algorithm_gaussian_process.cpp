@@ -278,6 +278,7 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
     double filtered_signal_;
     double mixing_parameter_;
     double stored_control_;
+    double last_prediction_end_;
 
     // Kalman filter state and variance
     double mean_kf_;
@@ -304,6 +305,7 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
       filtered_signal_(0.0),
       mixing_parameter_(0.0),
       stored_control_(0.0),
+      last_prediction_end_(0.0),
       mean_kf_(0.0),
       var_kf_(0.0),
       prediction_(0.0),
@@ -1002,17 +1004,23 @@ double GuideAlgorithmGaussianProcess::PredictGearError()
 {
     int delta_controller_time_ms = pFrame->RequestedExposureDuration();
 
-    // prediction for the next location
+    if ( parameters->last_prediction_end_ < 1.0 )
+    {
+        parameters->last_prediction_end_ = parameters->timer_.Time();
+    }
+
+    // prediction from the last endpoint to the prediction point
     Eigen::VectorXd next_location(2);
-    long current_time = parameters->timer_.Time();
-    next_location << current_time / 1000.0,
-    (current_time + delta_controller_time_ms) / 1000.0;
+    next_location << parameters->last_prediction_end_ / 1000.0,
+    (parameters->timer_.Time() + delta_controller_time_ms) / 1000.0;
     Eigen::VectorXd prediction = parameters->gp_.predictProjected(next_location).first;
 
     double p1 = prediction(1);
     double p0 = prediction(0);
     assert(std::abs(p1 - p0) < 10000);
     assert(!math_tools::isNaN(p1 - p0));
+
+    parameters->last_prediction_end_ = next_location(1); // store current endpoint
 
     // the prediction is consisting of GP prediction and the linear drift
     return (p1 - p0);
