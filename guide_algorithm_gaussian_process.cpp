@@ -955,8 +955,8 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
     }
 
     begin = std::clock();
-    // inference of the GP with this new points
-    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances);
+    // inference of the GP with this new points, maximum accuracy should be reached around current time
+    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances, parameters->timer_.Time());
 
     end = std::clock();
     double time_gp = double(end - begin) / CLOCKS_PER_SEC;
