@@ -152,6 +152,8 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
     double filtered_signal_;
     double mixing_parameter_;
     double stored_control_;
+    double last_time_;
+    double filtered_diff_time_;
 
     int min_nb_element_for_inference;
 
@@ -166,6 +168,8 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
       filtered_signal_(0.0),
       mixing_parameter_(0.0),
       stored_control_(0.0),
+      last_time_(0.0),
+      filtered_diff_time_(0.0),
       min_nb_element_for_inference(0)
     {
         circular_buffer_parameters.push_front(data_points());
@@ -381,6 +385,18 @@ void GuideAlgorithmMedianWindow::HandleTimestamps()
     parameters->get_last_point().timestamp = (time_now - delta_measurement_time_ms / 2) / 1000;
 }
 
+void GuideAlgorithmMedianWindow::FilterDiffTime()
+{
+    // This second diff time handling is needed to calculate the diff time independently
+    // for both the Gaussian process datapoints as well as the prediction time.
+
+    double time_now = parameters->timer_.Time();
+    double delta_measurement_time_ms = time_now - parameters->last_time_;
+    parameters->last_time_ = time_now;
+    // calculate an estimate for the time difference to get more accurate predictions
+    parameters->filtered_diff_time_ = 0.9 * parameters->filtered_diff_time_ + 0.1 * delta_measurement_time_ms;
+}
+
 // adds a new measurement to the circular buffer that holds the data.
 void GuideAlgorithmMedianWindow::HandleMeasurements(double input)
 {
@@ -402,7 +418,7 @@ void GuideAlgorithmMedianWindow::StoreControls(double control_input)
 
 double GuideAlgorithmMedianWindow::PredictDriftError()
 {
-    int delta_controller_time_ms = pFrame->RequestedExposureDuration();
+    int delta_controller_time_ms = parameters->filtered_diff_time_;
 
     int N = parameters->get_number_of_measurements();
 
@@ -460,6 +476,7 @@ double GuideAlgorithmMedianWindow::result(double input)
 {
     HandleMeasurements(input);
     HandleTimestamps();
+    FilterDiffTime();
 
     parameters->control_signal_ = parameters->control_gain_*input; // add the measured part of the controller
 
@@ -541,6 +558,8 @@ double GuideAlgorithmMedianWindow::result(double input)
 
 double GuideAlgorithmMedianWindow::deduceResult()
 {
+    FilterDiffTime();
+
     double drift_prediction = 0;
     parameters->control_signal_ = 0;
 	if (parameters->min_nb_element_for_inference > 0 &&

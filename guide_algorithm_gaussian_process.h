@@ -58,6 +58,7 @@ private:
     gp_guide_parameters* parameters;
 
     void HandleTimestamps();
+    void FilterDiffTime();
     void HandleMeasurements(double input);
     void HandleControls(double control_input);
     void StoreControls(double control_input);

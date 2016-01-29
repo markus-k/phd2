@@ -278,6 +278,8 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
     double filtered_signal_;
     double mixing_parameter_;
     double stored_control_;
+    double last_time_;
+    double filtered_diff_time_;
 
     // Kalman filter state and variance
     double mean_kf_;
@@ -304,6 +306,8 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
       filtered_signal_(0.0),
       mixing_parameter_(0.0),
       stored_control_(0.0),
+      last_time_(0.0),
+      filtered_diff_time_(0.0),
       mean_kf_(0.0),
       var_kf_(0.0),
       prediction_(0.0),
@@ -811,7 +815,21 @@ void GuideAlgorithmGaussianProcess::HandleTimestamps()
     double delta_measurement_time_ms = time_now - parameters->last_timestamp_;
     parameters->last_timestamp_ = time_now;
     parameters->get_last_point().timestamp = (time_now - delta_measurement_time_ms / 2.0) / 1000.0;
+
 }
+
+void GuideAlgorithmGaussianProcess::FilterDiffTime()
+{
+    // This second diff time handling is needed to calculate the diff time independently
+    // for both the Gaussian process datapoints as well as the prediction time.
+
+    double time_now = parameters->timer_.Time();
+    double delta_measurement_time_ms = time_now - parameters->last_time_;
+    parameters->last_time_ = time_now;
+    // calculate an estimate for the time difference to get more accurate predictions
+    parameters->filtered_diff_time_ = 0.9 * parameters->filtered_diff_time_ + 0.1 * delta_measurement_time_ms;
+}
+
 
 // adds a new measurement to the circular buffer that holds the data.
 void GuideAlgorithmGaussianProcess::HandleMeasurements(double input)
@@ -965,7 +983,7 @@ double GuideAlgorithmGaussianProcess::FilterState(double input, double noise)
 {
     double drift_variance = 1.0;
 
-    int delta_controller_time_ms = pFrame->RequestedExposureDuration();
+    int delta_controller_time_ms = parameters->filtered_diff_time_;
 
     // prediction for the next location
     Eigen::VectorXd old_location(2);
@@ -1000,7 +1018,7 @@ double GuideAlgorithmGaussianProcess::FilterState(double input, double noise)
 
 double GuideAlgorithmGaussianProcess::PredictGearError()
 {
-    int delta_controller_time_ms = pFrame->RequestedExposureDuration();
+    int delta_controller_time_ms = parameters->filtered_diff_time_;
 
     // prediction for the next location
     Eigen::VectorXd next_location(2);
@@ -1023,6 +1041,7 @@ double GuideAlgorithmGaussianProcess::result(double input)
 
     HandleMeasurements(input);
     HandleTimestamps();
+    FilterDiffTime();
     HandleSNR(pFrame->pGuider->SNR());
 
     parameters->control_signal_ = parameters->control_gain_*input; // add the measured part of the controller
@@ -1111,6 +1130,8 @@ double GuideAlgorithmGaussianProcess::result(double input)
 
 double GuideAlgorithmGaussianProcess::deduceResult()
 {
+    FilterDiffTime();
+
     parameters->control_signal_ = 0;
     // check if we are allowed to use the GP
     if (parameters->min_nb_element_for_inference > 0 &&
