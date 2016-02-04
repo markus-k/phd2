@@ -60,6 +60,7 @@ private:
     void HandleTimestamps();
     void FilterDiffTime();
     void HandleMeasurements(double input);
+    void HandleDarkGuiding();
     void HandleControls(double control_input);
     void StoreControls(double control_input);
     void HandleSNR(double noise);
