@@ -811,6 +811,12 @@ void GuideAlgorithmGaussianProcess::HandleMeasurements(double input)
     parameters->get_last_point().measurement = input;
 }
 
+void GuideAlgorithmGaussianProcess::HandleDarkGuiding()
+{
+    parameters->get_last_point().measurement = 0; // we didn't actually measure
+    parameters->get_last_point().variance = 1e4; // add really high noise
+}
+
 void GuideAlgorithmGaussianProcess::HandleControls(double control_input)
 {
     parameters->get_last_point().control = control_input;
@@ -1064,16 +1070,21 @@ double GuideAlgorithmGaussianProcess::result(double input)
 
 double GuideAlgorithmGaussianProcess::deduceResult()
 {
+    HandleDarkGuiding();
+    HandleTimestamps();
+
     parameters->control_signal_ = 0;
     // check if we are allowed to use the GP
     if (parameters->min_nb_element_for_inference > 0 &&
         parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference)
     {
+        UpdateGP(); // update the GP to update the SD approximation
         parameters->prediction_ = PredictGearError();
         parameters->control_signal_ += parameters->prediction_; // control based on prediction
     }
 
-    StoreControls(parameters->control_signal_); // store the applied control for later
+    parameters->add_one_point(); // add new point here, since the control is for the next point in time
+    HandleControls(parameters->control_signal_);
 
     // write the GP output to a file for easy analyzation
 #if GP_DEBUG_FILE_
