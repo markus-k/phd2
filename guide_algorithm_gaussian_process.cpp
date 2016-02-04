@@ -763,17 +763,16 @@ wxString GuideAlgorithmGaussianProcess::GetSettingsSummary()
 {
     static const char* format =
       "Control Gain = %.3f\n"
+      "Prediction gain = %.3f\n"
       "Hyperparameters\n"
-      "\tGP noise = %.3f\n"
-      "\tLength scale short SE kernel = %.3f\n"
-      "\tSignal variance short SE kernel = %.3f\n"
+      "\tLength scale long range SE kernel = %.3f\n"
+      "\tSignal variance long range SE kernel = %.3f\n"
       "\tLength scale periodic kernel = %.3f\n"
-      "\tPeriod Length periodic kernel = %.3f\n"
       "\tSignal variance periodic kernel = %.3f\n"
-      "\tLength scale long SE kernel = %.3f\n"
-      "\tSignal variance long SE kernel = %.3f\n"
-      "Optimisation called every = %.3d points\n"
-      "Mixing parameter = %.3d\n"
+      "\tLength scale short range SE kernel = %.3f\n"
+      "\tSignal variance short range SE kernel = %.3f\n"
+      "\tPeriod length periodic kernel = %.3f\n"
+      "FFT called every = %.3d points\n"
     ;
 
     Eigen::VectorXd hyperparameters = parameters->gp_.getHyperParameters();
@@ -781,12 +780,12 @@ wxString GuideAlgorithmGaussianProcess::GetSettingsSummary()
     return wxString::Format(
       format,
       GetControlGain(),
-      hyperparameters(0), hyperparameters(1),
-      hyperparameters(2), hyperparameters(3),
-      hyperparameters(4), hyperparameters(5),
-      hyperparameters(6), hyperparameters(7),
-      parameters->min_points_for_optimisation,
-      parameters->mixing_parameter_);
+      parameters->mixing_parameter_,
+      std::exp(hyperparameters(0)), std::exp(hyperparameters(1)),
+      std::exp(hyperparameters(2)), std::exp(hyperparameters(3)),
+      std::exp(hyperparameters(4)), std::exp(hyperparameters(5)),
+      std::exp(hyperparameters(6)), std::exp(hyperparameters(7)),
+      parameters->min_points_for_optimisation);
 }
 
 
