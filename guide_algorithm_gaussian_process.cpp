@@ -1032,7 +1032,7 @@ double GuideAlgorithmGaussianProcess::result(double input)
     gear_error = sum_controls + measurements; // for each time step, add the residual error
 
     // inference of the GP with these new points
-    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances);
+    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances, parameters->timer_.Time());
 
     int M = 512; // number of prediction points
     Eigen::VectorXd locations = Eigen::VectorXd::LinSpaced(M, 0, parameters->get_second_last_point().timestamp + 1500);
@@ -1114,7 +1114,7 @@ double GuideAlgorithmGaussianProcess::deduceResult()
     gear_error = sum_controls + measurements; // for each time step, add the residual error
 
     // inference of the GP with these new points
-    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances);
+    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances, parameters->timer_.Time());
 
     int M = 512; // number of prediction points
     Eigen::VectorXd locations = Eigen::VectorXd::LinSpaced(M, 0, parameters->get_second_last_point().timestamp + 1500);
