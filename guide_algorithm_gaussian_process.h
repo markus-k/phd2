@@ -64,7 +64,6 @@ private:
     void StoreControls(double control_input);
     void HandleSNR(double noise);
     void UpdateGP();
-    double FilterState(double input, double noise);
     double PredictGearError();
 
 protected:
