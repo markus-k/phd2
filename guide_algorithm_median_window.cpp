@@ -92,11 +92,11 @@ public:
 
         DoAdd(_("Differential Gain"), m_pDifferentialGain,
               _("The differential gain is used to reduce overshoot. It tries to slow down the control system, but if set "
-              " too high, it can lead to noise amplification. Default = 5.0"));
+              " too high, it can lead to noise amplification. Default = 10.0"));
 
         DoAdd(_("Min data points (inference)"), m_pNbMeasurementMin,
               _("Minimal number of measurements to start using the Median Window. If there are too little data points, "
-                "the result might be poor. Default = 25"));
+                "the result might be poor. Default = 100"));
 
     }
 
@@ -154,7 +154,7 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
     double stored_control_;
     double last_prediction_end_;
 
-    int min_nb_element_for_inference;
+    int min_nb_element_for_inference_;
 
     mw_guide_parameters() :
       circular_buffer_parameters(MW_BUFFER_SIZE),
@@ -168,7 +168,7 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
       mixing_parameter_(0.0),
       stored_control_(0.0),
       last_prediction_end_(0.0),
-      min_nb_element_for_inference(0)
+      min_nb_element_for_inference_(0)
     {
         circular_buffer_parameters.push_front(data_points());
         circular_buffer_parameters[0].control = 0; // the first control is always zero
@@ -203,11 +203,10 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
 
 };
 
-
 static const double DefaultControlGain = 0.5;
 static const double DefaultPredictionGain = 1.0;
-static const double DefaultDifferentialGain = 5.0;
-static const int    DefaultNbMinPointsForInference = 25;
+static const double DefaultDifferentialGain = 10.0;
+static const int    DefaultNbMinPointsForInference = 100;
 
 GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindow(Mount *pMount, GuideAxis axis)
     : GuideAlgorithm(pMount, axis),
@@ -218,6 +217,12 @@ GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindow(Mount *pMount, GuideAxis 
 
     double control_gain = pConfig->Profile.GetDouble(configPath + "/mw_control_gain", DefaultControlGain);
     SetControlGain(control_gain);
+
+    double prediction_gain = pConfig->Profile.GetDouble(configPath + "/mw_prediction_gain", DefaultPredictionGain);
+    SetPredictionGain(prediction_gain);
+
+    double differential_gain = pConfig->Profile.GetDouble(configPath + "/mw_differential_gain", DefaultDifferentialGain);
+    SetDifferentialGain(differential_gain);
 
     int nb_element_for_inference = pConfig->Profile.GetInt(configPath + "/mw_nb_elements_for_prediction", DefaultNbMinPointsForInference);
     SetNbElementForInference(nb_element_for_inference);
@@ -323,16 +328,16 @@ bool GuideAlgorithmMedianWindow::SetNbElementForInference(int nb_elements)
             throw ERROR_INFO("invalid number of elements");
         }
 
-        parameters->min_nb_element_for_inference = nb_elements;
+        parameters->min_nb_element_for_inference_ = nb_elements;
     }
     catch (wxString Msg)
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        parameters->min_nb_element_for_inference = DefaultNbMinPointsForInference;
+        parameters->min_nb_element_for_inference_ = DefaultNbMinPointsForInference;
     }
 
-    pConfig->Profile.SetInt(GetConfigPath() + "/mw_nb_elements_for_prediction", parameters->min_nb_element_for_inference);
+    pConfig->Profile.SetInt(GetConfigPath() + "/mw_nb_elements_for_prediction", parameters->min_nb_element_for_inference_);
 
     return error;
 }
@@ -354,7 +359,7 @@ double GuideAlgorithmMedianWindow::GetDifferentialGain() const
 
 int GuideAlgorithmMedianWindow::GetNbMeasurementsMin() const
 {
-    return parameters->min_nb_element_for_inference;
+    return parameters->min_nb_element_for_inference_;
 }
 
 wxString GuideAlgorithmMedianWindow::GetSettingsSummary()
@@ -484,8 +489,8 @@ double GuideAlgorithmMedianWindow::result(double input)
     }
 
     double drift_prediction = 0;
-	if (parameters->min_nb_element_for_inference > 0 &&
-        parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference)
+	if (parameters->min_nb_element_for_inference_ > 0 &&
+        parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference_)
     {
         drift_prediction = PredictDriftError();
 		parameters->control_signal_ += parameters->prediction_gain_ * drift_prediction; // add in the prediction
@@ -555,8 +560,8 @@ double GuideAlgorithmMedianWindow::deduceResult()
 {
     double drift_prediction = 0;
     parameters->control_signal_ = 0;
-	if (parameters->min_nb_element_for_inference > 0 &&
-        parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference)
+	if (parameters->min_nb_element_for_inference_ > 0 &&
+        parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference_)
     {
         drift_prediction = PredictDriftError();
         parameters->control_signal_ += drift_prediction; // add in the prediction
