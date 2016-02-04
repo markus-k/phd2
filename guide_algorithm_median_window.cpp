@@ -363,7 +363,9 @@ int GuideAlgorithmMedianWindow::GetNbMeasurementsMin() const
 wxString GuideAlgorithmMedianWindow::GetSettingsSummary()
 {
     static const char* format =
-    "Control Gain = %.3f\nPrediction Gain = %.3f\nDifferential Gain = %.3f\n";
+    "Control Gain = %.3f\n"
+    "Prediction Gain = %.3f\n"
+    "Differential Gain = %.3f\n";
 
     return wxString::Format(format, GetControlGain(), GetPredictionGain(), GetDifferentialGain());
 }
