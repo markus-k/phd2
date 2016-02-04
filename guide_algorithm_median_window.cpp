@@ -464,8 +464,11 @@ double GuideAlgorithmMedianWindow::PredictDriftError()
 
     parameters->last_prediction_end_ = parameters->timer_.Time() + delta_controller_time_ms; // store current endpoint
 
+    assert(prediction_length < 100);
+    assert(parameters->control_gain_ < 10);
+
     // the prediction is consisting of GP prediction and the linear drift
-    return (prediction_length / 1000.0) * mean_slope;
+    return prediction_length  * mean_slope;
 }
 
 double GuideAlgorithmMedianWindow::result(double input)
