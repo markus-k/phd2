@@ -50,7 +50,7 @@ class GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcessDialogPane : p
     GuideAlgorithmGaussianProcess *m_pGuideAlgorithm;
     wxSpinCtrlDouble *m_pControlGain;
     wxSpinCtrl       *m_pNbPointsInference;
-    wxSpinCtrl       *m_pNbPointsOptimisation;
+    wxSpinCtrl       *m_pNbPointsPeriodComputation;
     wxSpinCtrl       *m_pNbPointsApproximation;
 
     wxSpinCtrlDouble *m_pSE0KLengthScale;
@@ -62,7 +62,6 @@ class GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcessDialogPane : p
     wxSpinCtrlDouble *m_pSE1KSignalVariance;
     wxSpinCtrlDouble *m_pMixingParameter;
 
-    wxCheckBox       *m_checkboxOptimization;
     wxCheckBox       *m_checkboxComputePeriod;
 
     wxCheckBox       *m_checkboxDarkMode;
@@ -89,8 +88,7 @@ public:
                                              wxDefaultPosition,wxSize(width+30, -1),
                                              wxSP_ARROW_KEYS, 0, 1000, 10);
 
-        // number of elements before starting the optimization
-        m_pNbPointsOptimisation = new wxSpinCtrl(pParent, wxID_ANY, wxEmptyString,
+        m_pNbPointsPeriodComputation = new wxSpinCtrl(pParent, wxID_ANY, wxEmptyString,
                                                  wxDefaultPosition,wxSize(width+30, -1),
                                                  wxSP_ARROW_KEYS, 0, 1000, 10);
 
@@ -153,7 +151,7 @@ public:
               _("Minimal number of measurements to start using the Gaussian process. If there are too little data points, "
                 "the result might be poor. Default = 25"));
 
-        DoAdd(_("Minimum data points (optimization)"), m_pNbPointsOptimisation,
+        DoAdd(_("Minimum data points (period)"), m_pNbPointsPeriodComputation,
               _("Minimal number of measurements to start estimating the periodicity. If there are too little data points, "
                 "the estimation might not work. Default = 100"));
 
@@ -201,7 +199,7 @@ public:
     {
         m_pControlGain->SetValue(m_pGuideAlgorithm->GetControlGain());
         m_pNbPointsInference->SetValue(m_pGuideAlgorithm->GetNbMeasurementsMin());
-        m_pNbPointsOptimisation->SetValue(m_pGuideAlgorithm->GetNbPointsBetweenOptimisation());
+        m_pNbPointsPeriodComputation->SetValue(m_pGuideAlgorithm->GetNbPointsPeriodComputation());
         m_pNbPointsApproximation->SetValue(m_pGuideAlgorithm->GetNbPointsForApproximation());
 
         std::vector<double> hyperparameters = m_pGuideAlgorithm->GetGPHyperparameters();
@@ -225,7 +223,7 @@ public:
     {
         m_pGuideAlgorithm->SetControlGain(m_pControlGain->GetValue());
         m_pGuideAlgorithm->SetNbElementForInference(m_pNbPointsInference->GetValue());
-        m_pGuideAlgorithm->SetNbPointsOptimisation(m_pNbPointsOptimisation->GetValue());
+        m_pGuideAlgorithm->SetNbPointsPeriodComputation(m_pNbPointsPeriodComputation->GetValue());
         m_pGuideAlgorithm->SetNbPointsForApproximation(m_pNbPointsApproximation->GetValue());
 
         std::vector<double> hyperparameters(8);
@@ -270,10 +268,9 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
     double last_prediction_end_;
 
     int min_nb_element_for_inference;
-    int min_points_for_optimisation;
+    int min_points_for_period_computation;
     int points_for_approximation;
 
-    bool optimize_hyperparameters;
     bool compute_period;
 
     bool dark_tracking_mode_;
@@ -292,9 +289,8 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
       prediction_(0.0),
       last_prediction_end_(0.0),
       min_nb_element_for_inference(0),
-      min_points_for_optimisation(0),
+      min_points_for_period_computation(0),
       points_for_approximation(0),
-      optimize_hyperparameters(false),
       compute_period(false),
       gp_(covariance_function_)
     {
@@ -347,7 +343,7 @@ static const double DefaultSignalVariancePerKer          = 10.0; // signal varia
 static const double DefaultLengthScaleSE1Ker             = 5.0; // length-scale of the short-range SE-kernel
 static const double DefaultSignalVarianceSE1Ker          = 1.0; // signal variance of the short range SE-kernel
 
-static const int    DefaultNbMinPointsForOptimisation    = 100; // minimal number of points for doing the period identification
+static const int    DefaultNbMinPointsForPeriodComputation    = 100; // minimal number of points for doing the period identification
 static const int    DefaultNbPointsForApproximation      = 100; // number of points used in the GP approximation
 static const double DefaultMixing                        = 1.0; // amount of GP prediction to blend in
 
@@ -366,8 +362,8 @@ GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcess(Mount *pMount, Guid
     int nb_element_for_inference = pConfig->Profile.GetInt(configPath + "/gp_min_points_inference", DefaultNbMinPointsForInference);
     SetNbElementForInference(nb_element_for_inference);
 
-    int nb_points_optimisation = pConfig->Profile.GetInt(configPath + "/gp_min_points_optimization", DefaultNbMinPointsForOptimisation);
-    SetNbPointsOptimisation(nb_points_optimisation);
+    int nb_points_period_computation = pConfig->Profile.GetInt(configPath + "/gp_min_points_period_computation", DefaultNbMinPointsForPeriodComputation);
+    SetNbPointsPeriodComputation(nb_points_period_computation);
 
     int nb_points_approximation = pConfig->Profile.GetInt(configPath + "/gp_points_for_approximation", DefaultNbPointsForApproximation);
     SetNbPointsForApproximation(nb_points_approximation);
@@ -459,7 +455,7 @@ bool GuideAlgorithmGaussianProcess::SetNbElementForInference(int nb_elements)
     return error;
 }
 
-bool GuideAlgorithmGaussianProcess::SetNbPointsOptimisation(int nb_points)
+bool GuideAlgorithmGaussianProcess::SetNbPointsPeriodComputation(int nb_points)
 {
     bool error = false;
 
@@ -470,16 +466,16 @@ bool GuideAlgorithmGaussianProcess::SetNbPointsOptimisation(int nb_points)
             throw ERROR_INFO("invalid number of points");
         }
 
-        parameters->min_points_for_optimisation = nb_points;
+        parameters->min_points_for_period_computation = nb_points;
     }
     catch (wxString Msg)
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        parameters->min_points_for_optimisation = DefaultNbMinPointsForOptimisation;
+        parameters->min_points_for_period_computation = DefaultNbMinPointsForPeriodComputation;
     }
 
-    pConfig->Profile.SetInt(GetConfigPath() + "/gp_min_points_optimization", parameters->min_points_for_optimisation);
+    pConfig->Profile.SetInt(GetConfigPath() + "/gp_min_points_period_computation", parameters->min_points_for_period_computation);
 
     return error;
 }
@@ -703,9 +699,9 @@ int GuideAlgorithmGaussianProcess::GetNbMeasurementsMin() const
     return parameters->min_nb_element_for_inference;
 }
 
-int GuideAlgorithmGaussianProcess::GetNbPointsBetweenOptimisation() const
+int GuideAlgorithmGaussianProcess::GetNbPointsPeriodComputation() const
 {
-    return parameters->min_points_for_optimisation;
+    return parameters->min_points_for_period_computation;
 }
 
 int GuideAlgorithmGaussianProcess::GetNbPointsForApproximation() const
@@ -770,7 +766,7 @@ wxString GuideAlgorithmGaussianProcess::GetSettingsSummary()
       std::exp(hyperparameters(2)), std::exp(hyperparameters(3)),
       std::exp(hyperparameters(4)), std::exp(hyperparameters(5)),
       std::exp(hyperparameters(6)), std::exp(hyperparameters(7)),
-      parameters->min_points_for_optimisation);
+      parameters->min_points_for_period_computation);
 }
 
 
@@ -871,9 +867,9 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
     begin = std::clock();
 
     double time_fft = 0;
-    // optimize the hyperparameters if we have enough points already
-    if (parameters->min_points_for_optimisation > 0
-      && parameters->get_number_of_measurements() > parameters->min_points_for_optimisation)
+    // calculate period length if we have enough points already
+    if (parameters->min_points_for_period_computation > 0
+      && parameters->get_number_of_measurements() > parameters->min_points_for_period_computation)
     {
       // find periodicity parameter with FFT
 

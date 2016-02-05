@@ -73,9 +73,8 @@ protected:
     bool SetNbElementForInference(int nb_elements);
     int GetNbMeasurementsMin() const;
 
-    // minimum amount of points between consecutive calls to the optimisation
-    int GetNbPointsBetweenOptimisation() const;
-    bool SetNbPointsOptimisation(int);
+    int GetNbPointsPeriodComputation() const;
+    bool SetNbPointsPeriodComputation(int);
 
     int GetNbPointsForApproximation() const;
     bool SetNbPointsForApproximation(int);
