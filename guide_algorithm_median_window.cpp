@@ -159,7 +159,6 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
     double prediction_gain_;
     double differential_gain_;
     double last_timestamp_;
-    double filtered_signal_;
     double mixing_parameter_;
     double stored_control_;
     double last_prediction_end_;
@@ -176,7 +175,6 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
       prediction_gain_(0.0),
       differential_gain_(0.0),
       last_timestamp_(0.0),
-      filtered_signal_(0.0),
       mixing_parameter_(0.0),
       stored_control_(0.0),
       last_prediction_end_(0.0),

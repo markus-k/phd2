@@ -282,7 +282,6 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
     double control_gain_;
     double last_timestamp_;
     double mixing_parameter_;
-    double stored_control_;
     double prediction_;
     double last_prediction_end_;
 
@@ -306,7 +305,6 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
       control_gain_(0.0),
       last_timestamp_(0.0),
       mixing_parameter_(0.0),
-      stored_control_(0.0),
       prediction_(0.0),
       last_prediction_end_(0.0),
       min_nb_element_for_inference(0),
@@ -841,15 +839,7 @@ void GuideAlgorithmGaussianProcess::HandleDarkGuiding()
 
 void GuideAlgorithmGaussianProcess::HandleControls(double control_input)
 {
-    // don't forget to apply the stored control signals from the dark period
-    parameters->get_last_point().control = control_input + parameters->stored_control_;
-    parameters->stored_control_ = 0; // reset stored control since we applied it
-}
-
-void GuideAlgorithmGaussianProcess::StoreControls(double control_input)
-{
-    // sum up control inputs over the dark period
-    parameters->stored_control_ += control_input;
+    parameters->get_last_point().control = control_input;
 }
 
 void GuideAlgorithmGaussianProcess::HandleSNR(double SNR)
