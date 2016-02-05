@@ -96,11 +96,11 @@ public:
 
         DoAdd(_("Differential Gain"), m_pDifferentialGain,
               _("The differential gain is used to reduce overshoot. It tries to slow down the control system, but if set "
-              " too high, it can lead to noise amplification. Default = 10.0"));
+              " too high, it can lead to noise amplification. Default = 5.0"));
 
         DoAdd(_("Min data points (inference)"), m_pNbMeasurementMin,
               _("Minimal number of measurements to start using the Median Window. If there are too little data points, "
-                "the result might be poor. Default = 100"));
+                "the result might be poor. Default = 50"));
 
         DoAdd(_("Force dark tracking"), m_checkboxDarkMode, _("This is just for debugging and disabled by default"));
 
@@ -215,8 +215,8 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
 
 static const double DefaultControlGain = 0.5;
 static const double DefaultPredictionGain = 1.0;
-static const double DefaultDifferentialGain = 10.0;
-static const int    DefaultNbMinPointsForInference = 100;
+static const double DefaultDifferentialGain = 5.0;
+static const int    DefaultNbMinPointsForInference = 50;
 
 GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindow(Mount *pMount, GuideAxis axis)
     : GuideAlgorithm(pMount, axis),
