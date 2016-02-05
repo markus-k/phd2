@@ -66,6 +66,8 @@ class GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcessDialogPane : p
     wxCheckBox       *m_checkboxOptimization;
     wxCheckBox       *m_checkboxComputePeriod;
 
+    wxCheckBox       *m_checkboxDarkMode;
+
 public:
     GuideAlgorithmGaussianProcessDialogPane(wxWindow *pParent, GuideAlgorithmGaussianProcess *pGuideAlgorithm)
       : ConfigDialogPane(_("Gaussian Process Guide Algorithm"),pParent)
@@ -145,6 +147,8 @@ public:
         m_checkboxOptimization = new wxCheckBox(pParent, wxID_ANY, _T(""));
         m_checkboxComputePeriod = new wxCheckBox(pParent, wxID_ANY, _T(""));
 
+        m_checkboxDarkMode = new wxCheckBox(pParent, wxID_ANY, _T(""));
+
         DoAdd(_("Control Gain"), m_pControlGain,
               _("The control gain defines how aggressive the controller is. It is the amount of pointing error that is "
                 "fed back to the system. Default = 0.8"));
@@ -193,6 +197,8 @@ public:
               _("Compute period length with FFT"));
         DoAdd(_("Optimize parameters"), m_checkboxOptimization,
               _("Optimize parameters with Newton steps"));
+
+        DoAdd(_("Force dark tracking"), m_checkboxDarkMode, _("This is just for debugging and disabled by default"));
     }
 
     virtual ~GuideAlgorithmGaussianProcessDialogPane(void)
@@ -285,6 +291,8 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
 
     bool optimize_hyperparameters;
     bool compute_period;
+
+    bool dark_tracking_mode_;
 
     covariance_functions::PeriodicSquareExponential2 covariance_function_;
     covariance_functions::PeriodicSquareExponential output_covariance_function_;
@@ -405,6 +413,8 @@ GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcess(Mount *pMount, Guid
 
     // enable the explicit basis function for the linear drift
     parameters->gp_.enableExplicitTrend();
+
+    parameters->dark_tracking_mode_ = false;
 
     reset();
 }
@@ -757,6 +767,17 @@ bool GuideAlgorithmGaussianProcess::GetBoolComputePeriod() const
     return parameters->compute_period;
 }
 
+bool GuideAlgorithmGaussianProcess::GetDarkTracking()
+{
+    return parameters->dark_tracking_mode_;
+}
+
+bool GuideAlgorithmGaussianProcess::SetDarkTracking(bool value)
+{
+    parameters->dark_tracking_mode_ = value;
+    return false;
+}
+
 wxString GuideAlgorithmGaussianProcess::GetSettingsSummary()
 {
     static const char* format =
@@ -978,6 +999,10 @@ double GuideAlgorithmGaussianProcess::PredictGearError()
 
 double GuideAlgorithmGaussianProcess::result(double input)
 {
+    if (parameters->dark_tracking_mode_ == true)
+    {
+        return deduceResult();
+    }
 
     HandleMeasurements(input);
     HandleTimestamps();
