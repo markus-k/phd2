@@ -1,9 +1,9 @@
 //
-//  guide_algorithm_median_window.cpp
+//  guide_algorithm_trimmed_mean.cpp
 //  PHD2 Guiding
 //
 //  Created by Edgar Klenske.
-//  Copyright 2015, Max Planck Society.
+//  Copyright 2015-2016, Max Planck Society.
 
 /*
 *  This source code is distributed under the following "BSD" license
@@ -33,7 +33,7 @@
 */
 
 #include "phd.h"
-#include "guide_algorithm_median_window.h"
+#include "guide_algorithm_trimmed_mean.h"
 
 // A functor for special orderings
 struct value_index_ordering
@@ -46,9 +46,9 @@ struct value_index_ordering
     Eigen::VectorXd const& values_;
 };
 
-class GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindowDialogPane : public ConfigDialogPane
+class GuideAlgorithmTrimmedMean::GuideAlgorithmTrimmedMeanDialogPane : public ConfigDialogPane
 {
-    GuideAlgorithmMedianWindow *m_pGuideAlgorithm;
+    GuideAlgorithmTrimmedMean *m_pGuideAlgorithm;
     wxSpinCtrlDouble *m_pControlGain;
     wxSpinCtrlDouble *m_pPredictionGain;
     wxSpinCtrlDouble *m_pDifferentialGain;
@@ -57,8 +57,8 @@ class GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindowDialogPane : public 
     wxCheckBox       *m_checkboxDarkMode;
 
 public:
-    GuideAlgorithmMedianWindowDialogPane(wxWindow *pParent, GuideAlgorithmMedianWindow *pGuideAlgorithm)
-      : ConfigDialogPane(_("Median Window Guide Algorithm"),pParent)
+    GuideAlgorithmTrimmedMeanDialogPane(wxWindow *pParent, GuideAlgorithmTrimmedMean *pGuideAlgorithm)
+      : ConfigDialogPane(_("Trimmed Mean Guide Algorithm"),pParent)
     {
         m_pGuideAlgorithm = pGuideAlgorithm;
 
@@ -99,14 +99,14 @@ public:
               " too high, it can lead to noise amplification. Default = 10.0"));
 
         DoAdd(_("Min data points (inference)"), m_pNbMeasurementMin,
-              _("Minimal number of measurements to start using the Median Window. If there are too little data points, "
-                "the result might be poor. Default = 100"));
+              _("Minimal number of measurements to start using the Trimmed Mean. If there are too little data points, "
+                "the result might be poor. Default = 50"));
 
         DoAdd(_("Force dark tracking"), m_checkboxDarkMode, _("This is just for debugging and disabled by default"));
 
     }
 
-    virtual ~GuideAlgorithmMedianWindowDialogPane(void)
+    virtual ~GuideAlgorithmTrimmedMeanDialogPane(void)
     {
       // no need to destroy the widgets, this is done by the parent...
     }
@@ -147,8 +147,7 @@ struct mw_guiding_circular_datapoints
 };
 
 
-// parameters of the LR guiding algorithm
-struct GuideAlgorithmMedianWindow::mw_guide_parameters
+struct GuideAlgorithmTrimmedMean::mw_guide_parameters
 {
     typedef mw_guiding_circular_datapoints data_points;
     circular_buffer<data_points> circular_buffer_parameters;
@@ -218,7 +217,7 @@ static const double DefaultPredictionGain = 1.0;
 static const double DefaultDifferentialGain = 10.0;
 static const int    DefaultNbMinPointsForInference = 100;
 
-GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindow(Mount *pMount, GuideAxis axis)
+GuideAlgorithmTrimmedMean::GuideAlgorithmTrimmedMean(Mount *pMount, GuideAxis axis)
     : GuideAlgorithm(pMount, axis),
       parameters(0)
 {
@@ -242,19 +241,19 @@ GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindow(Mount *pMount, GuideAxis 
     reset();
 }
 
-GuideAlgorithmMedianWindow::~GuideAlgorithmMedianWindow(void)
+GuideAlgorithmTrimmedMean::~GuideAlgorithmTrimmedMean(void)
 {
     delete parameters;
 }
 
 
-ConfigDialogPane *GuideAlgorithmMedianWindow::GetConfigDialogPane(wxWindow *pParent)
+ConfigDialogPane *GuideAlgorithmTrimmedMean::GetConfigDialogPane(wxWindow *pParent)
 {
-    return new GuideAlgorithmMedianWindowDialogPane(pParent, this);
+    return new GuideAlgorithmTrimmedMeanDialogPane(pParent, this);
 }
 
 
-bool GuideAlgorithmMedianWindow::SetControlGain(double control_gain)
+bool GuideAlgorithmTrimmedMean::SetControlGain(double control_gain)
 {
     bool error = false;
 
@@ -279,7 +278,7 @@ bool GuideAlgorithmMedianWindow::SetControlGain(double control_gain)
     return error;
 }
 
-bool GuideAlgorithmMedianWindow::SetPredictionGain(double prediction_gain)
+bool GuideAlgorithmTrimmedMean::SetPredictionGain(double prediction_gain)
 {
     bool error = false;
 
@@ -304,7 +303,7 @@ bool GuideAlgorithmMedianWindow::SetPredictionGain(double prediction_gain)
     return error;
 }
 
-bool GuideAlgorithmMedianWindow::SetDifferentialGain(double differential_gain)
+bool GuideAlgorithmTrimmedMean::SetDifferentialGain(double differential_gain)
 {
     bool error = false;
 
@@ -329,7 +328,7 @@ bool GuideAlgorithmMedianWindow::SetDifferentialGain(double differential_gain)
     return error;
 }
 
-bool GuideAlgorithmMedianWindow::SetNbElementForInference(int nb_elements)
+bool GuideAlgorithmTrimmedMean::SetNbElementForInference(int nb_elements)
 {
     bool error = false;
 
@@ -354,38 +353,38 @@ bool GuideAlgorithmMedianWindow::SetNbElementForInference(int nb_elements)
     return error;
 }
 
-double GuideAlgorithmMedianWindow::GetControlGain() const
+double GuideAlgorithmTrimmedMean::GetControlGain() const
 {
     return parameters->control_gain_;
 }
 
-double GuideAlgorithmMedianWindow::GetPredictionGain() const
+double GuideAlgorithmTrimmedMean::GetPredictionGain() const
 {
     return parameters->prediction_gain_;
 }
 
-double GuideAlgorithmMedianWindow::GetDifferentialGain() const
+double GuideAlgorithmTrimmedMean::GetDifferentialGain() const
 {
     return parameters->differential_gain_;
 }
 
-int GuideAlgorithmMedianWindow::GetNbMeasurementsMin() const
+int GuideAlgorithmTrimmedMean::GetNbMeasurementsMin() const
 {
     return parameters->min_nb_element_for_inference_;
 }
 
-bool GuideAlgorithmMedianWindow::GetDarkTracking()
+bool GuideAlgorithmTrimmedMean::GetDarkTracking()
 {
     return parameters->dark_tracking_mode_;
 }
 
-bool GuideAlgorithmMedianWindow::SetDarkTracking(bool value)
+bool GuideAlgorithmTrimmedMean::SetDarkTracking(bool value)
 {
     parameters->dark_tracking_mode_ = value;
     return false;
 }
 
-wxString GuideAlgorithmMedianWindow::GetSettingsSummary()
+wxString GuideAlgorithmTrimmedMean::GetSettingsSummary()
 {
     static const char* format =
     "Control Gain = %.3f\n"
@@ -396,12 +395,12 @@ wxString GuideAlgorithmMedianWindow::GetSettingsSummary()
 }
 
 
-GUIDE_ALGORITHM GuideAlgorithmMedianWindow::Algorithm(void)
+GUIDE_ALGORITHM GuideAlgorithmTrimmedMean::Algorithm(void)
 {
-    return GUIDE_ALGORITHM_MEDIAN_WINDOW;
+    return GUIDE_ALGORITHM_TRIMMED_MEAN;
 }
 
-void GuideAlgorithmMedianWindow::HandleTimestamps()
+void GuideAlgorithmTrimmedMean::HandleTimestamps()
 {
     if (parameters->get_number_of_measurements() == 0)
     {
@@ -414,25 +413,25 @@ void GuideAlgorithmMedianWindow::HandleTimestamps()
 }
 
 // adds a new measurement to the circular buffer that holds the data.
-void GuideAlgorithmMedianWindow::HandleMeasurements(double input)
+void GuideAlgorithmTrimmedMean::HandleMeasurements(double input)
 {
     parameters->get_last_point().measurement = input;
 }
 
-void GuideAlgorithmMedianWindow::HandleControls(double control_input)
+void GuideAlgorithmTrimmedMean::HandleControls(double control_input)
 {
     // don't forget to apply the stored control signals from the dark period
     parameters->get_last_point().control = control_input + parameters->stored_control_;
     parameters->stored_control_ = 0; // reset stored control since we applied it
 }
 
-void GuideAlgorithmMedianWindow::StoreControls(double control_input)
+void GuideAlgorithmTrimmedMean::StoreControls(double control_input)
 {
     // sum up control inputs over the dark period
     parameters->stored_control_ += control_input;
 }
 
-double GuideAlgorithmMedianWindow::PredictDriftError()
+double GuideAlgorithmTrimmedMean::PredictDriftError()
 {
     int N = parameters->get_number_of_measurements();
 
@@ -501,7 +500,7 @@ double GuideAlgorithmMedianWindow::PredictDriftError()
     return (prediction_length / 1000.0) * mean_slope;
 }
 
-double GuideAlgorithmMedianWindow::result(double input)
+double GuideAlgorithmTrimmedMean::result(double input)
 {
     if (parameters->dark_tracking_mode_ == true)
     {
@@ -544,7 +543,7 @@ double GuideAlgorithmMedianWindow::result(double input)
     parameters->add_one_point();
     HandleControls(parameters->control_signal_);
 
-    Debug.AddLine("Median window guider: input: %f, diff: %f, prediction: %f, control: %f",
+    Debug.AddLine("Trimmed mean guider: input: %f, diff: %f, prediction: %f, control: %f",
         input, difference, drift_prediction, parameters->control_signal_);
 
     // write the data to a file for easy debugging
@@ -589,7 +588,7 @@ double GuideAlgorithmMedianWindow::result(double input)
     return parameters->control_signal_;
 }
 
-double GuideAlgorithmMedianWindow::deduceResult()
+double GuideAlgorithmTrimmedMean::deduceResult()
 {
     double drift_prediction = 0;
     parameters->control_signal_ = 0;
@@ -602,13 +601,13 @@ double GuideAlgorithmMedianWindow::deduceResult()
 
     StoreControls(parameters->control_signal_);
 
-    Debug.AddLine("Median window guider: input: %f, gain: %f, prediction: %f, control: %f",
+    Debug.AddLine("Trimmed mean guider: input: %f, gain: %f, prediction: %f, control: %f",
         0, parameters->control_gain_, drift_prediction, parameters->control_signal_);
 
     return parameters->control_signal_;
 }
 
-void GuideAlgorithmMedianWindow::reset()
+void GuideAlgorithmTrimmedMean::reset()
 {
     parameters->clear();
     return;
