@@ -500,7 +500,7 @@ double GuideAlgorithmMedianWindow::PredictDriftError()
     assert(parameters->control_gain_ < 10);
 
     // the prediction is consisting of GP prediction and the linear drift
-    return prediction_length  * mean_slope;
+    return (prediction_length / 1000.0) * mean_slope;
 }
 
 double GuideAlgorithmMedianWindow::result(double input)

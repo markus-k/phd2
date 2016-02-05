@@ -242,8 +242,8 @@ bool Star::Find(const usImage *pImg, int searchRegion, int base_x, int base_y, F
 
         // meaure noise in the annulus with inner radius A and outer radius B
         /* DON'T MERGE THESE CHANGES, THEY ARE ONLY FOR INDOOR TESTING WITH TOO LARGE STARS */
-        int const A = 7;   // inner radius
-        int const B = 12;  // outer radius
+        int const A = 10;   // inner radius
+        int const B = 15;  // outer radius
         int const A2 = A * A;
         int const B2 = B * B;
 
