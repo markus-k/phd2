@@ -80,9 +80,6 @@ protected:
     int GetNbPointsForApproximation() const;
     bool SetNbPointsForApproximation(int);
 
-    bool GetBoolOptimizeHyperparameters() const;
-    bool SetBoolOptimizeHyperparameters(bool);
-
     bool GetBoolComputePeriod() const;
     bool SetBoolComputePeriod(bool);
 
