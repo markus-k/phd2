@@ -72,6 +72,9 @@ protected:
     bool SetNbElementForInference(int nb_elements);
     int GetNbMeasurementsMin() const;
 
+    bool GetDarkTracking();
+    bool SetDarkTracking(bool value);
+
 public:
     GuideAlgorithmMedianWindow(Mount *pMount, GuideAxis axis);
     virtual ~GuideAlgorithmMedianWindow(void);

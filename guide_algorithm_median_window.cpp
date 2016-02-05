@@ -54,6 +54,8 @@ class GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindowDialogPane : public 
     wxSpinCtrlDouble *m_pDifferentialGain;
     wxSpinCtrl       *m_pNbMeasurementMin;
 
+    wxCheckBox       *m_checkboxDarkMode;
+
 public:
     GuideAlgorithmMedianWindowDialogPane(wxWindow *pParent, GuideAlgorithmMedianWindow *pGuideAlgorithm)
       : ConfigDialogPane(_("Median Window Guide Algorithm"),pParent)
@@ -82,6 +84,8 @@ public:
                                              wxDefaultPosition,wxSize(width+30, -1),
                                              wxSP_ARROW_KEYS, 0, 100, 25);
 
+        m_checkboxDarkMode = new wxCheckBox(pParent, wxID_ANY, _T(""));
+
         DoAdd(_("Control Gain"), m_pControlGain,
               _("The control gain defines how aggressive the controller is. It is the amount of pointing error that is "
                 "fed back to the system. Default = 0.5"));
@@ -97,6 +101,8 @@ public:
         DoAdd(_("Min data points (inference)"), m_pNbMeasurementMin,
               _("Minimal number of measurements to start using the Median Window. If there are too little data points, "
                 "the result might be poor. Default = 100"));
+
+        DoAdd(_("Force dark tracking"), m_checkboxDarkMode, _("This is just for debugging and disabled by default"));
 
     }
 
@@ -114,6 +120,8 @@ public:
       m_pPredictionGain->SetValue(m_pGuideAlgorithm->GetPredictionGain());
       m_pDifferentialGain->SetValue(m_pGuideAlgorithm->GetDifferentialGain());
       m_pNbMeasurementMin->SetValue(m_pGuideAlgorithm->GetNbMeasurementsMin());
+
+      m_checkboxDarkMode->SetValue(m_pGuideAlgorithm->GetDarkTracking());
     }
 
     // Set the parameters chosen in the GUI in the actual guiding algorithm
@@ -123,6 +131,8 @@ public:
       m_pGuideAlgorithm->SetPredictionGain(m_pPredictionGain->GetValue());
       m_pGuideAlgorithm->SetDifferentialGain(m_pDifferentialGain->GetValue());
       m_pGuideAlgorithm->SetNbElementForInference(m_pNbMeasurementMin->GetValue());
+
+      m_pGuideAlgorithm->SetDarkTracking(m_checkboxDarkMode->GetValue());
     }
 
 };
@@ -153,6 +163,8 @@ struct GuideAlgorithmMedianWindow::mw_guide_parameters
     double mixing_parameter_;
     double stored_control_;
     double last_prediction_end_;
+
+    bool dark_tracking_mode_;
 
     int min_nb_element_for_inference_;
 
@@ -226,6 +238,8 @@ GuideAlgorithmMedianWindow::GuideAlgorithmMedianWindow(Mount *pMount, GuideAxis 
 
     int nb_element_for_inference = pConfig->Profile.GetInt(configPath + "/mw_nb_elements_for_prediction", DefaultNbMinPointsForInference);
     SetNbElementForInference(nb_element_for_inference);
+
+    parameters->dark_tracking_mode_ = false;
 
     reset();
 }
@@ -362,6 +376,17 @@ int GuideAlgorithmMedianWindow::GetNbMeasurementsMin() const
     return parameters->min_nb_element_for_inference_;
 }
 
+bool GuideAlgorithmMedianWindow::GetDarkTracking()
+{
+    return parameters->dark_tracking_mode_;
+}
+
+bool GuideAlgorithmMedianWindow::SetDarkTracking(bool value)
+{
+    parameters->dark_tracking_mode_ = value;
+    return false;
+}
+
 wxString GuideAlgorithmMedianWindow::GetSettingsSummary()
 {
     static const char* format =
@@ -477,6 +502,11 @@ double GuideAlgorithmMedianWindow::PredictDriftError()
 
 double GuideAlgorithmMedianWindow::result(double input)
 {
+    if (parameters->dark_tracking_mode_ == true)
+    {
+        return deduceResult();
+    }
+
     HandleMeasurements(input);
     HandleTimestamps();
 
