@@ -981,6 +981,43 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
     Debug.AddLine("timings: init: %f, detrend: %f, fft: %f, gp: %f", time_init, time_detrend, time_fft, time_gp);
 }
 
+double GuideAlgorithmGaussianProcess::FilterState(double input, double noise)
+{
+    double drift_variance = 1.0;
+
+    int delta_controller_time_ms = pFrame->RequestedExposureDuration();
+
+    // prediction for the next location
+    Eigen::VectorXd old_location(2);
+    long time = parameters->get_last_point().timestamp;
+    old_location << time / 1000.0,
+    (time + delta_controller_time_ms) / 1000.0;
+    GP::VectorMatrixPair prediction = parameters->gp_.predictProjected(old_location);
+
+    Eigen::VectorXd mean = prediction.first;
+    Eigen::MatrixXd var  = prediction.second;
+
+    // the prediction is consisting of GP prediction and the linear drift
+    double gp_prediction = mean(1) - mean(0);
+    double gp_variance = var(0,0) + var(1,1) - var(0,1);
+
+    double predictive_mean = parameters->mean_kf_ - parameters->control_signal_ + gp_prediction;
+    double predictive_var = parameters->var_kf_ + gp_variance + drift_variance;
+
+    double residual = input - predictive_mean;
+
+    double updated_mean = predictive_mean + predictive_var / ( predictive_var + noise) * residual;
+    double updated_var = predictive_var - predictive_var / ( predictive_var + noise) * predictive_var;
+
+    Debug.AddLine("KF info: old mean: %f, pred mean: %f, measurement: %f, residual: %f, new mean: %f", parameters->mean_kf_, predictive_mean, input, residual, updated_mean);
+    Debug.AddLine("KF info: old var: %f, pred var: %f, noise: %f, gp_var %f, new var: %f", parameters->var_kf_, predictive_var, noise, gp_variance, updated_var);
+
+    parameters->mean_kf_ = updated_mean;
+    parameters->var_kf_ = updated_var;
+
+    return updated_mean;
+}
+
 double GuideAlgorithmGaussianProcess::PredictGearError()
 {
     int delta_controller_time_ms = pFrame->RequestedExposureDuration();
