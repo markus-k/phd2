@@ -85,9 +85,8 @@ protected:
     bool SetGPHyperparameters(std::vector<double> const& hyperparameters);
     std::vector<double> GetGPHyperparameters() const;
 
-    // Mixing parameter
-    double GetMixingParameter() const;
-    bool SetMixingParameter(double);
+    double GetPredictionGain() const;
+    bool SetPredictionGain(double);
 
     bool GetDarkTracking();
     bool SetDarkTracking(bool value);

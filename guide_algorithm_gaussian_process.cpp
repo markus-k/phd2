@@ -60,7 +60,7 @@ class GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcessDialogPane : p
     wxSpinCtrlDouble *m_pPKSignalVariance;
     wxSpinCtrlDouble *m_pSE1KLengthScale;
     wxSpinCtrlDouble *m_pSE1KSignalVariance;
-    wxSpinCtrlDouble *m_pMixingParameter;
+    wxSpinCtrlDouble *m_pPredictionGain;
 
     wxCheckBox       *m_checkboxComputePeriod;
 
@@ -78,10 +78,10 @@ public:
                                               wxSP_ARROW_KEYS, 0.0, 1.0, 0.8, 0.05);
         m_pControlGain->SetDigits(2);
 
-        m_pMixingParameter = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
+        m_pPredictionGain = new wxSpinCtrlDouble(pParent, wxID_ANY, wxEmptyString,
                                                   wxDefaultPosition,wxSize(width+30, -1),
                                                   wxSP_ARROW_KEYS, 0.0, 1.0, 0.8, 0.01);
-        m_pMixingParameter->SetDigits(2);
+        m_pPredictionGain->SetDigits(2);
 
         // number of elements before starting the inference
         m_pNbPointsInference = new wxSpinCtrl(pParent, wxID_ANY, wxEmptyString,
@@ -144,7 +144,7 @@ public:
               _("The control gain defines how aggressive the controller is. It is the amount of pointing error that is "
                 "fed back to the system. Default = 0.8"));
 
-        DoAdd(_("Prediction gain"), m_pMixingParameter,
+        DoAdd(_("Prediction gain"), m_pPredictionGain,
               _("The prediction gain defines how much control signal is generated from the prediction. Default = 1.0"));
 
         DoAdd(_("Minimum data points (inference)"), m_pNbPointsInference,
@@ -213,7 +213,7 @@ public:
         m_pSE1KSignalVariance->SetValue(hyperparameters[6]);
         m_pPKPeriodLength->SetValue(hyperparameters[7]);
 
-        m_pMixingParameter->SetValue(m_pGuideAlgorithm->GetMixingParameter());
+        m_pPredictionGain->SetValue(m_pGuideAlgorithm->GetPredictionGain());
 
         m_checkboxComputePeriod->SetValue(m_pGuideAlgorithm->GetBoolComputePeriod());
     }
@@ -237,7 +237,7 @@ public:
         hyperparameters[7] = m_pPKPeriodLength->GetValue();
 
         m_pGuideAlgorithm->SetGPHyperparameters(hyperparameters);
-        m_pGuideAlgorithm->SetMixingParameter(m_pMixingParameter->GetValue());
+        m_pGuideAlgorithm->SetPredictionGain(m_pPredictionGain->GetValue());
         m_pGuideAlgorithm->SetBoolComputePeriod(m_checkboxComputePeriod->GetValue());
     }
 };
@@ -263,7 +263,7 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
     double control_signal_;
     double control_gain_;
     double last_timestamp_;
-    double mixing_parameter_;
+    double prediction_gain_;
     double prediction_;
     double last_prediction_end_;
 
@@ -285,7 +285,7 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
       control_signal_(0.0),
       control_gain_(0.0),
       last_timestamp_(0.0),
-      mixing_parameter_(0.0),
+      prediction_gain_(0.0),
       prediction_(0.0),
       last_prediction_end_(0.0),
       min_nb_element_for_inference(0),
@@ -343,9 +343,9 @@ static const double DefaultSignalVariancePerKer          = 10.0; // signal varia
 static const double DefaultLengthScaleSE1Ker             = 5.0; // length-scale of the short-range SE-kernel
 static const double DefaultSignalVarianceSE1Ker          = 1.0; // signal variance of the short range SE-kernel
 
-static const int    DefaultNbMinPointsForPeriodComputation    = 100; // minimal number of points for doing the period identification
-static const int    DefaultNbPointsForApproximation      = 100; // number of points used in the GP approximation
-static const double DefaultMixing                        = 1.0; // amount of GP prediction to blend in
+static const int    DefaultNbMinPointsForPeriodComputation = 100; // minimal number of points for doing the period identification
+static const int    DefaultNbPointsForApproximation        = 100; // number of points used in the GP approximation
+static const double DefaultPredictionGain                  = 1.0; // amount of GP prediction to blend in
 
 static const bool   DefaultComputePeriod                 = true;
 
@@ -368,8 +368,8 @@ GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcess(Mount *pMount, Guid
     int nb_points_approximation = pConfig->Profile.GetInt(configPath + "/gp_points_for_approximation", DefaultNbPointsForApproximation);
     SetNbPointsForApproximation(nb_points_approximation);
 
-    double mixing_parameter = pConfig->Profile.GetDouble(configPath + "/gp_mixing_parameter", DefaultMixing);
-    SetMixingParameter(mixing_parameter);
+    double prediction_gain = pConfig->Profile.GetDouble(configPath + "/gp_prediction_gain", DefaultPredictionGain);
+    SetPredictionGain(prediction_gain);
 
     std::vector<double> v_hyperparameters(8);
     v_hyperparameters[0] = pConfig->Profile.GetDouble(configPath + "/gp_gaussian_noise",         DefaultGaussianNoiseHyperparameter);
@@ -657,27 +657,27 @@ bool GuideAlgorithmGaussianProcess::SetGPHyperparameters(std::vector<double> con
     return error;
 }
 
-bool GuideAlgorithmGaussianProcess::SetMixingParameter(double mixing)
+bool GuideAlgorithmGaussianProcess::SetPredictionGain(double prediction_gain)
 {
     bool error = false;
 
     try
     {
-        if (mixing < 0)
+        if (prediction_gain < 0)
         {
-            throw ERROR_INFO("invalid mixing parameter");
+            throw ERROR_INFO("invalid prediction gain");
         }
 
-        parameters->mixing_parameter_ = mixing;
+        parameters->prediction_gain_ = prediction_gain;
     }
     catch (wxString Msg)
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
-        parameters->mixing_parameter_ = DefaultMixing;
+        parameters->prediction_gain_ = DefaultPredictionGain;
     }
 
-    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_mixing_parameter", parameters->mixing_parameter_);
+    pConfig->Profile.SetDouble(GetConfigPath() + "/gp_prediction_gain", parameters->prediction_gain_);
 
     return error;
 }
@@ -719,9 +719,9 @@ std::vector<double> GuideAlgorithmGaussianProcess::GetGPHyperparameters() const
                                hyperparameters.data() + 8); // 8 parameters, therefore the last is at position 7
 }
 
-double GuideAlgorithmGaussianProcess::GetMixingParameter() const
+double GuideAlgorithmGaussianProcess::GetPredictionGain() const
 {
-    return parameters->mixing_parameter_;
+    return parameters->prediction_gain_;
 }
 
 bool GuideAlgorithmGaussianProcess::GetBoolComputePeriod() const
@@ -761,7 +761,7 @@ wxString GuideAlgorithmGaussianProcess::GetSettingsSummary()
     return wxString::Format(
       format,
       GetControlGain(),
-      parameters->mixing_parameter_,
+      parameters->prediction_gain_,
       std::exp(hyperparameters(0)), std::exp(hyperparameters(1)),
       std::exp(hyperparameters(2)), std::exp(hyperparameters(3)),
       std::exp(hyperparameters(4)), std::exp(hyperparameters(5)),
@@ -979,7 +979,7 @@ double GuideAlgorithmGaussianProcess::result(double input)
         UpdateGP(); // update the GP based on the new measurements
         parameters->control_signal_ = parameters->control_gain_*input;
         parameters->prediction_ = PredictGearError();
-        parameters->control_signal_ += parameters->mixing_parameter_*parameters->prediction_; // mix in the prediction
+        parameters->control_signal_ += parameters->prediction_gain_*parameters->prediction_; // mix in the prediction
     }
 
     parameters->add_one_point(); // add new point here, since the control is for the next point in time
