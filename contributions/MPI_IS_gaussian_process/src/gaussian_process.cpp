@@ -402,8 +402,8 @@ GP::VectorMatrixPair GP::predictProjected(const Eigen::VectorXd& locations) cons
         if (use_explicit_trend_)
         {
             // calculate the feature vectors for linear regression
-            phi.row(0) = Eigen::MatrixXd::Ones(locations.rows(), 1); // locations.pow(0)
-            phi.row(1) = locations; // locations.pow(1)
+            phi.row(0) = Eigen::MatrixXd::Ones(1,locations.rows()); // locations.pow(0)
+            phi.row(1) = locations.array(); // locations.pow(1)
 
             return predict(prior_cov, mixed_cov, phi);
         }

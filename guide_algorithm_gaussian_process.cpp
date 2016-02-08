@@ -856,8 +856,8 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
 
     // linear least squares regression for offset and drift
     Eigen::MatrixXd feature_matrix(2, timestamps.rows());
-    feature_matrix.row(0) = Eigen::MatrixXd::Ones(timestamps.rows(), 1); // timestamps.pow(0)
-    feature_matrix.row(1) = timestamps; // timestamps.pow(1)
+    feature_matrix.row(0) = Eigen::MatrixXd::Ones(1, timestamps.rows()); // timestamps.pow(0)
+    feature_matrix.row(1) = timestamps.array(); // timestamps.pow(1)
 
     // this is the inference for linear regression
     Eigen::VectorXd weights = (feature_matrix*feature_matrix.transpose()
