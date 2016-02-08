@@ -330,6 +330,7 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
         circular_buffer_parameters.clear();
         circular_buffer_parameters.push_front(data_points()); // add first point
         circular_buffer_parameters[0].control = 0; // set first control to zero
+        last_prediction_end_ = 0;
         gp_.clearData();
     }
 
@@ -934,7 +935,7 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
 
     begin = std::clock();
     // inference of the GP with this new points, maximum accuracy should be reached around current time
-    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances, parameters->timer_.Time());
+    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances, parameters->timer_.Time() / 1000.0);
 
     end = std::clock();
     double time_gp = double(end - begin) / CLOCKS_PER_SEC;
@@ -947,18 +948,18 @@ double GuideAlgorithmGaussianProcess::PredictGearError()
 
     if ( parameters->last_prediction_end_ < 1.0 )
     {
-        parameters->last_prediction_end_ = parameters->timer_.Time();
+        parameters->last_prediction_end_ = parameters->timer_.Time() / 1000.0;
     }
 
     // prediction from the last endpoint to the prediction point
     Eigen::VectorXd next_location(2);
-    next_location << parameters->last_prediction_end_ / 1000.0,
+    next_location << parameters->last_prediction_end_,
     (parameters->timer_.Time() + delta_controller_time_ms) / 1000.0;
     Eigen::VectorXd prediction = parameters->gp_.predictProjected(next_location).first;
 
     double p1 = prediction(1);
     double p0 = prediction(0);
-    assert(std::abs(p1 - p0) < 10000);
+    assert(std::abs(p1 - p0) < 100);
     assert(!math_tools::isNaN(p1 - p0));
 
     parameters->last_prediction_end_ = next_location(1); // store current endpoint
@@ -1022,7 +1023,7 @@ double GuideAlgorithmGaussianProcess::result(double input)
     gear_error = sum_controls + measurements; // for each time step, add the residual error
 
     // inference of the GP with these new points
-    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances, parameters->timer_.Time());
+    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances, parameters->timer_.Time() / 1000.0);
 
     int M = 512; // number of prediction points
     Eigen::VectorXd locations = Eigen::VectorXd::LinSpaced(M, 0, parameters->get_second_last_point().timestamp + 1500);
@@ -1109,7 +1110,7 @@ double GuideAlgorithmGaussianProcess::deduceResult()
     gear_error = sum_controls + measurements; // for each time step, add the residual error
 
     // inference of the GP with these new points
-    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances, parameters->timer_.Time());
+    parameters->gp_.inferSD(timestamps, gear_error, parameters->points_for_approximation, variances, parameters->timer_.Time() / 1000.0);
 
     int M = 512; // number of prediction points
     Eigen::VectorXd locations = Eigen::VectorXd::LinSpaced(M, 0, parameters->get_second_last_point().timestamp + 1500);

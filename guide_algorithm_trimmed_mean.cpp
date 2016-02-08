@@ -490,19 +490,19 @@ double GuideAlgorithmTrimmedMean::PredictDriftError()
 
     if ( parameters->last_prediction_end_ < 1.0 )
     {
-        parameters->last_prediction_end_ = parameters->timer_.Time();
+        parameters->last_prediction_end_ = parameters->timer_.Time() / 1000.0;
     }
 
     // prediction from the last endpoint to the prediction point
-    double prediction_length = (parameters->timer_.Time() + delta_controller_time_ms - parameters->last_prediction_end_) / 1000.0;
+    double prediction_length = (parameters->timer_.Time() + delta_controller_time_ms) / 1000.0 - parameters->last_prediction_end_;
 
-    parameters->last_prediction_end_ = parameters->timer_.Time() + delta_controller_time_ms; // store current endpoint
+    parameters->last_prediction_end_ = (parameters->timer_.Time() + delta_controller_time_ms) / 1000.0; // store current endpoint
 
     assert(prediction_length < 100);
     assert(parameters->control_gain_ < 10);
 
     // the prediction is consisting of GP prediction and the linear drift
-    return (prediction_length / 1000.0) * mean_slope;
+    return prediction_length * mean_slope;
 }
 
 double GuideAlgorithmTrimmedMean::result(double input)
@@ -606,8 +606,10 @@ double GuideAlgorithmTrimmedMean::deduceResult()
 
     StoreControls(parameters->control_signal_);
 
-    Debug.AddLine("Trimmed mean guider: input: %f, gain: %f, prediction: %f, control: %f",
-        0, parameters->control_gain_, drift_prediction, parameters->control_signal_);
+    Debug.AddLine("Median window guider (deduced): gain: %f, prediction: %f, control: %f",
+        parameters->control_gain_, drift_prediction, parameters->control_signal_);
+
+    assert(parameters->control_gain_ < 10);
 
     return parameters->control_signal_;
 }
