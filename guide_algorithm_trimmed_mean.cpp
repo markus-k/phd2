@@ -152,7 +152,7 @@ struct mw_guiding_circular_datapoints
 };
 
 
-struct GuideAlgorithmTrimmedMean::mw_guide_parameters
+struct GuideAlgorithmTrimmedMean::tm_guide_parameters
 {
     typedef mw_guiding_circular_datapoints data_points;
     circular_buffer<data_points> circular_buffer_parameters;
@@ -171,7 +171,7 @@ struct GuideAlgorithmTrimmedMean::mw_guide_parameters
 
     int min_nb_element_for_inference_;
 
-    mw_guide_parameters() :
+    tm_guide_parameters() :
       circular_buffer_parameters(MW_BUFFER_SIZE),
       timer_(),
       control_signal_(0.0),
@@ -226,7 +226,7 @@ GuideAlgorithmTrimmedMean::GuideAlgorithmTrimmedMean(Mount *pMount, GuideAxis ax
     : GuideAlgorithm(pMount, axis),
       parameters(0)
 {
-    parameters = new mw_guide_parameters();
+    parameters = new tm_guide_parameters();
     wxString configPath = GetConfigPath();
 
     double control_gain = pConfig->Profile.GetDouble(configPath + "/mw_control_gain", DefaultControlGain);

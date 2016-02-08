@@ -204,7 +204,7 @@ public:
     virtual void LoadValues(void)
     {
         m_pControlGain->SetValue(m_pGuideAlgorithm->GetControlGain());
-        m_pNbPointsInference->SetValue(m_pGuideAlgorithm->GetNbMeasurementsMin());
+        m_pNbPointsInference->SetValue(m_pGuideAlgorithm->GetNbPointsInference());
         m_pNbPointsPeriodComputation->SetValue(m_pGuideAlgorithm->GetNbPointsPeriodComputation());
         m_pNbPointsApproximation->SetValue(m_pGuideAlgorithm->GetNbPointsForApproximation());
 
@@ -228,7 +228,7 @@ public:
     virtual void UnloadValues(void)
     {
         m_pGuideAlgorithm->SetControlGain(m_pControlGain->GetValue());
-        m_pGuideAlgorithm->SetNbElementForInference(m_pNbPointsInference->GetValue());
+        m_pGuideAlgorithm->SetNbPointsInference(m_pNbPointsInference->GetValue());
         m_pGuideAlgorithm->SetNbPointsPeriodComputation(m_pNbPointsPeriodComputation->GetValue());
         m_pGuideAlgorithm->SetNbPointsForApproximation(m_pNbPointsApproximation->GetValue());
 
@@ -366,7 +366,7 @@ GuideAlgorithmGaussianProcess::GuideAlgorithmGaussianProcess(Mount *pMount, Guid
     SetControlGain(control_gain);
 
     int nb_element_for_inference = pConfig->Profile.GetInt(configPath + "/gp_min_points_inference", DefaultNbMinPointsForInference);
-    SetNbElementForInference(nb_element_for_inference);
+    SetNbPointsInference(nb_element_for_inference);
 
     int nb_points_period_computation = pConfig->Profile.GetInt(configPath + "/gp_min_points_period_computation", DefaultNbMinPointsForPeriodComputation);
     SetNbPointsPeriodComputation(nb_points_period_computation);
@@ -436,7 +436,7 @@ bool GuideAlgorithmGaussianProcess::SetControlGain(double control_gain)
     return error;
 }
 
-bool GuideAlgorithmGaussianProcess::SetNbElementForInference(int nb_elements)
+bool GuideAlgorithmGaussianProcess::SetNbPointsInference(int nb_elements)
 {
     bool error = false;
 
@@ -700,7 +700,7 @@ double GuideAlgorithmGaussianProcess::GetControlGain() const
     return parameters->control_gain_;
 }
 
-int GuideAlgorithmGaussianProcess::GetNbMeasurementsMin() const
+int GuideAlgorithmGaussianProcess::GetNbPointsInference() const
 {
     return parameters->min_nb_element_for_inference;
 }

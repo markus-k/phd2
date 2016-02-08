@@ -58,29 +58,63 @@ class wxStopWatch;
 class GuideAlgorithmTrimmedMean : public GuideAlgorithm
 {
 private:
-    struct mw_guide_parameters;
+    /**
+     * Holds all data that is needed for the trimmed mean guiding.
+     */
+    struct tm_guide_parameters;
+
+    /**
+     * Provides the GUI configuration functionality.
+     */
     class GuideAlgorithmTrimmedMeanDialogPane;
 
-    mw_guide_parameters* parameters;
+    /**
+     * Pointer to the guiding parameters of this instance.
+     */
+    tm_guide_parameters* parameters;
 
+    /**
+     * Stores the current time and creates a timestamp for the GP.
+     */
     void HandleTimestamps();
+
+    /**
+     * Stores the measurement to the last datapoint.
+     */
     void HandleMeasurements(double input);
+
+    /**
+     * Stores the control value.
+     */
     void HandleControls(double control_input);
+
+    /**
+     * Stores the control inputs from blind guiding.
+     */
     void StoreControls(double control_input);
+
+    /**
+     * Calculates the difference in drift error for the time between the last
+     * prediction point and the current prediction point, which lies one
+     * exposure length in the future. For this, the diff of measurements and
+     * time is calculated. The element-wise division provides average slope,
+     * and a trimmed mean operation results in a robust estimate for the average
+     * drift error.
+     */
     double PredictDriftError();
 
 protected:
-
     double GetControlGain() const;
-    double GetPredictionGain() const;
-    double GetDifferentialGain() const;
     bool SetControlGain(double control_gain);
+
+    double GetPredictionGain() const;
     bool SetPredictionGain(double prediction_gain);
+
+    double GetDifferentialGain() const;
     bool SetDifferentialGain(double differential_gain);
 
-    // minimum amount of points for starting the inference
-    bool SetNbElementForInference(int nb_elements);
     int GetNbMeasurementsMin() const;
+    bool SetNbElementForInference(int nb_elements);
 
     bool GetDarkTracking();
     bool SetDarkTracking(bool value);
@@ -91,8 +125,22 @@ public:
     virtual GUIDE_ALGORITHM Algorithm(void);
 
     virtual ConfigDialogPane *GetConfigDialogPane(wxWindow *pParent);
+
+    /**
+     * Calculates the control value based on the current input. The control
+     * signal consists of feedback and prediction parts.
+     *
+     */
     virtual double result(double input);
+
+    /**
+     * This method provides predictive control if no measurement could be made.
+     */
     virtual double deduceResult(void);
+
+    /**
+     * Clears the data from the circular buffer.
+     */
     virtual void reset();
     virtual wxString GetSettingsSummary();
     virtual wxString GetGuideAlgorithmClassName(void) const { return "Trimmed Mean"; }
