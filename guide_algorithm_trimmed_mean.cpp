@@ -1,9 +1,11 @@
-//
-//  guide_algorithm_trimmed_mean.cpp
-//  PHD2 Guiding
-//
-//  Created by Edgar Klenske.
-//  Copyright 2015-2016, Max Planck Society.
+/**
+ * PHD2 Guiding
+ *
+ * @year      2014-2016
+ * @copyright Max Planck Society
+ *
+ * @author    Edgar D. Klenske
+ */
 
 /*
 *  This source code is distributed under the following "BSD" license
@@ -521,19 +523,19 @@ double GuideAlgorithmTrimmedMean::result(double input)
     }
 
     double drift_prediction = 0;
-	if (parameters->min_nb_element_for_inference_ > 0 &&
+    if (parameters->min_nb_element_for_inference_ > 0 &&
         parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference_)
     {
         drift_prediction = PredictDriftError();
-		parameters->control_signal_ += parameters->prediction_gain_ * drift_prediction; // add in the prediction
-		parameters->control_signal_ += parameters->differential_gain_ * difference; // D-component of PD controller
+        parameters->control_signal_ += parameters->prediction_gain_ * drift_prediction; // add in the prediction
+        parameters->control_signal_ += parameters->differential_gain_ * difference; // D-component of PD controller
 
         // check if the input points in the wrong direction, but only if the error isn't too big
         if (std::abs(input) < 10.0 && parameters->control_signal_ * drift_prediction < 0)
         {
             parameters->control_signal_ = 0; // prevent backlash overshooting
         }
-	}
+    }
     else
     {
         parameters->control_signal_ += parameters->differential_gain_ * difference; // D-component of PD controller
@@ -592,12 +594,12 @@ double GuideAlgorithmTrimmedMean::deduceResult()
 {
     double drift_prediction = 0;
     parameters->control_signal_ = 0;
-	if (parameters->min_nb_element_for_inference_ > 0 &&
+    if (parameters->min_nb_element_for_inference_ > 0 &&
         parameters->get_number_of_measurements() > parameters->min_nb_element_for_inference_)
     {
         drift_prediction = PredictDriftError();
         parameters->control_signal_ += drift_prediction; // add in the prediction
-	}
+    }
 
     StoreControls(parameters->control_signal_);
 

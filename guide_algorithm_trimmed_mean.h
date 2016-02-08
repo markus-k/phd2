@@ -1,9 +1,11 @@
-//
-//  guide_algorithm_trimmed_mean.h
-//  PHD2 Guiding
-//
-//  Created by Edgar Klenske.
-//  Copyright 2015-2016, Max Planck Society.
+/**
+ * PHD2 Guiding
+ *
+ * @year      2014-2016
+ * @copyright Max Planck Society
+ *
+ * @author    Edgar D. Klenske
+ */
 
 /*
  *  This source code is distributed under the following "BSD" license
@@ -44,6 +46,12 @@
 
 class wxStopWatch;
 
+/**
+ * This is a robust guiding algorithm for the declination axis that provides
+ * strong resistance against switching to the wrong direction and consistent
+ * linear predictions for both tracking performance and dark tracking while
+ * no measurement is available.
+ */
 class GuideAlgorithmTrimmedMean : public GuideAlgorithm
 {
 private:

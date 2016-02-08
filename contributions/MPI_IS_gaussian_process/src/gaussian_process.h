@@ -151,7 +151,7 @@ public:
      * Sets the GP back to the prior:
      * Removes datapoints, empties the Gram matrix.
      */
-    void clear();
+    void clearData();
 
     /*!
      * Predicts the mean and covariance for a vector of locations.
@@ -188,11 +188,6 @@ public:
      * Returns the hyperparameters to the given vector.
      */
     Eigen::VectorXd getHyperParameters() const;
-
-    /*!
-     * Sets the covariance hyperparameters to the given vector.
-     */
-    void setCovarianceHyperParameters(const Eigen::VectorXd& hyperParameters);
 
     /*!
      * Enables the use of a explicit linear basis function.
