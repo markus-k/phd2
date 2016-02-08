@@ -1,9 +1,13 @@
-//
-//  guide_gaussian_process.cpp
-//  PHD2 Guiding
-//
-//  Created by Stephan Wenninger and Edgar Klenske.
-//  Copyright 2014-2015, Max Planck Society.
+/**
+ * PHD2 Guiding
+ *
+ * @year      2014-2016
+ * @copyright Max Planck Society
+ *
+ * @author    Edgar D. Klenske
+ * @author    Stefan Wenniger
+ * @author    Raffi Enficiaud
+ */
 
 /*
 *  This source code is distributed under the following "BSD" license
@@ -344,7 +348,7 @@ struct GuideAlgorithmGaussianProcess::gp_guide_parameters
         circular_buffer_parameters.clear();
         circular_buffer_parameters.push_front(data_points()); // add first point
         circular_buffer_parameters[0].control = 0; // set first control to zero
-        gp_.clear();
+        gp_.clearData();
     }
 
 };
@@ -834,10 +838,13 @@ void GuideAlgorithmGaussianProcess::StoreControls(double control_input)
 
 void GuideAlgorithmGaussianProcess::HandleSNR(double SNR)
 {
-    SNR = std::max(SNR, 3.4); // limit the minimal SNR
+    if (SNR < 3.4)
+    {
+        SNR = 3.4; // the calculation down below breaks down at 3.3
+    }
 
-    // this was determined by simulated experiments
-    double standard_deviation = 2.1752 * 1 / (SNR - 3.3) + 0.5;// -0.0212;
+    // this relationship was determined by simulated experiments
+    double standard_deviation = 2.1752 * 1 / (SNR - 3.3) - 0.0212;
 
     parameters->get_last_point().variance = standard_deviation * standard_deviation;
 }
@@ -877,8 +884,8 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
 
     // linear least squares regression for offset and drift
     Eigen::MatrixXd feature_matrix(2, timestamps.rows());
-    feature_matrix.row(0) = timestamps.array().pow(0); // easier to understand than ones
-    feature_matrix.row(1) = timestamps.array(); // .pow(1) would be kinda useless
+    feature_matrix.row(0) = Eigen::MatrixXd::Ones(timestamps.rows(), 1); // timestamps.pow(0)
+    feature_matrix.row(1) = timestamps; // timestamps.pow(1)
 
     // this is the inference for linear regression
     Eigen::VectorXd weights = (feature_matrix*feature_matrix.transpose()
@@ -914,9 +921,11 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
       double dt = (timestamps(timestamps.rows()-1) - timestamps(1))/timestamps.rows();
       if (dt < 0)
       {
+          Debug.AddLine("Something is wrong: The average time step length is is negative!");
           Debug.AddLine("timestamps: last: %f, first: %f, rows: %f", timestamps(timestamps.rows() - 1), timestamps(1), timestamps.rows());
+          return;
       }
-      assert(dt >= 0);
+
       frequencies /= dt; // correct for the average time step width
 
       Eigen::ArrayXd periods = 1/frequencies.array();
@@ -998,7 +1007,7 @@ double GuideAlgorithmGaussianProcess::FilterState(double input, double noise)
     return updated_mean;
 }
 
-double GuideAlgorithmGaussianProcess::PredictGearError()
+double GuideAlgorithmGaussianProcess::PredictGearError() const
 {
     int delta_controller_time_ms = pFrame->RequestedExposureDuration();
 

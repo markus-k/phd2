@@ -171,7 +171,7 @@ namespace math_tools
         Eigen::FFT<double> fft;
 
         std::vector<double> vec_data(padded_data.data(), padded_data.data() + padded_data.rows() * padded_data.cols());
-        std::vector<std::complex<double>> vec_result;
+        std::vector<std::complex<double> > vec_result;
         fft.fwd(vec_result, vec_data);
 
         Eigen::VectorXcd result = Eigen::Map<Eigen::VectorXcd>(&vec_result[0], vec_result.size());

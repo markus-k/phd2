@@ -1,9 +1,13 @@
-//
-//  guide_gaussian_process.h
-//  PHD2 Guiding
-//
-//  Created by Stephan Wenninger and Edgar Klenske.
-//  Copyright 2014-2015, Max Planck Society.
+/**
+ * PHD2 Guiding
+ *
+ * @year      2014-2016
+ * @copyright Max Planck Society
+ *
+ * @author    Edgar D. Klenske
+ * @author    Stefan Wenniger
+ * @author    Raffi Enficiaud
+ */
 
 /*
  *  This source code is distributed under the following "BSD" license
@@ -49,6 +53,13 @@
 
 class wxStopWatch;
 
+/**
+ * This class provides a guiding algorithm for the right ascension axis that
+ * learns and predicts the periodic gear error with a Gaussian process. This
+ * prediction helps reducing periodic error components in the residual tracking
+ * error. Further it is able to perform tracking without measurement to increase
+ * robustness of the overall guiding system.
+ */
 class GuideAlgorithmGaussianProcess : public GuideAlgorithm
 {
 private:
@@ -64,7 +75,7 @@ private:
     void HandleSNR(double noise);
     void UpdateGP();
     double FilterState(double input, double noise);
-    double PredictGearError();
+    double PredictGearError() const;
 
 protected:
     double GetControlGain() const;

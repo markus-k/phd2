@@ -63,7 +63,7 @@ namespace covariance_functions
         Eigen::ArrayXXd squareDistanceXY = math_tools::squareDistance( x.transpose(), y.transpose());
 
         // Square Exponential Kernel
-        Eigen::ArrayXXd K0 = squareDistanceXY / pow(lsSE0, 2);
+        Eigen::ArrayXXd K0 = squareDistanceXY / std::pow(lsSE0, 2);
         K0 = svSE0 * (-0.5 * K0).exp();
 
         // Periodic Kernel
