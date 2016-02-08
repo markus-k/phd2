@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015, Max Planck Society.
+ * Copyright 2014-2016, Max Planck Society.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,13 +29,15 @@
  *
  */
 
-/*!@file
- * @author  Edgar Klenske <edgar.klenske@tuebingen.mpg.de>
- * @author  Stephan Wenninger <stephan.wenninger@tuebingen.mpg.de>
+/**
+ * @date      2014-2016
+ * @copyright Max Planck Society
  *
- * @brief
- * The file holds the covariance functions that can be used with the GP class.
+ * @author    Edgar D. Klenske <edgar.klenske@tuebingen.mpg.de>
+ * @author    Stephan Wenninger <stephan.wenninger@tuebingen.mpg.de>
+ * @author    Raffi Enficiaud <raffi.enficiaud@tuebingen.mpg.de>
  *
+ * @brief     The file holds the covariance functions that can be used with the GP class.
  */
 
 #ifndef COVARIANCE_FUNCTIONS_H

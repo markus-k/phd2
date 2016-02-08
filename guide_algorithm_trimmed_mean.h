@@ -1,10 +1,13 @@
 /**
  * PHD2 Guiding
  *
- * @year      2014-2016
+ * @date      2014-2016
  * @copyright Max Planck Society
  *
- * @author    Edgar D. Klenske
+ * @author    Edgar D. Klenske <edgar.klenske@tuebingen.mpg.de>
+ * @author    Raffi Enficiaud <raffi.enficiaud@tuebingen.mpg.de>
+ *
+ * @brief     Provides a simple guider for declination based on a trimmed mean
  */
 
 /*

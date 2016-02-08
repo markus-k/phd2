@@ -1,12 +1,14 @@
 /**
  * PHD2 Guiding
  *
- * @year      2014-2016
+ * @date      2014-2016
  * @copyright Max Planck Society
  *
- * @author    Edgar D. Klenske
- * @author    Stefan Wenniger
- * @author    Raffi Enficiaud
+ * @author    Edgar D. Klenske <edgar.klenske@tuebingen.mpg.de>
+ * @author    Stephan Wenninger <stephan.wenninger@tuebingen.mpg.de>
+ * @author    Raffi Enficiaud <raffi.enficiaud@tuebingen.mpg.de>
+ *
+ * @brief     Provides a Gaussian process based guiding algorithm
  */
 
 /*
