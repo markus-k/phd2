@@ -1,6 +1,7 @@
 /**
  * PHD2 Guiding
  *
+ * @file
  * @date      2014-2016
  * @copyright Max Planck Society
  *
