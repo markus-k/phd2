@@ -52,17 +52,6 @@
 
 namespace covariance_functions
 {
-
-    typedef std::pair< Eigen::MatrixXd, std::vector< Eigen::MatrixXd> > MatrixStdVecPair;
-
-    enum paramIndices { LengthScalePIndex,
-                        PeriodLengthPIndex,
-                        SignalVariancePIndex,
-                        LengthScaleSEIndex,
-                        SignalVarianceSEIndex,
-                        TauIndex
-                      };
-
     /*!@brief Base class definition for covariance functions
      */
     class CovFunc

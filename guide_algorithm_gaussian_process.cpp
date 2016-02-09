@@ -876,7 +876,7 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
 
     double time_fft = 0;
     // calculate period length if we have enough points already
-    if (parameters->min_points_for_period_computation > 0
+    if (parameters->compute_period && parameters->min_points_for_period_computation > 0
       && parameters->get_number_of_measurements() > parameters->min_points_for_period_computation)
     {
       // find periodicity parameter with FFT
