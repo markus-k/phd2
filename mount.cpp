@@ -698,12 +698,6 @@ bool Mount::FlipCalibration(void)
     return bError;
 }
 
-void Mount::FlagBacklashOverShoot(double pixelAmount, GuideAxis axis)
-{
-    if (m_backlashComp && m_backlashComp->IsEnabled() && axis == GUIDE_DEC && !IsStepGuider() && GetGuidingEnabled())
-        m_backlashComp->HandleOverShoot((int) (pixelAmount / m_cal.yRate));
-}
-
 void Mount::LogGuideStepInfo()
 {
     if (m_lastStep.frameNumber < 0)
@@ -721,6 +715,11 @@ void Mount::LogGuideStepInfo()
     }
 
     m_lastStep.frameNumber = -1; // invalidate
+}
+
+void Mount::ResetBLCBaseline()
+{
+    m_backlashComp->ResetBaseline();
 }
 
 Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveType moveType)
@@ -764,10 +763,18 @@ Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveT
                 {
                     xDistance = m_pXGuideAlgorithm->result(xDistance);
                 }
+
+                // Let BLC track the raw offsets in Dec
+                m_backlashComp->TrackBLCResults(yDistance, m_pYGuideAlgorithm->GetMinMove(), m_cal.yRate);
+
                 if (m_pYGuideAlgorithm)
                 {
                     yDistance = m_pYGuideAlgorithm->result(yDistance);
                 }
+            }
+            else
+            {
+                m_backlashComp->ResetBaseline();
             }
         }
 
@@ -783,10 +790,9 @@ Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveT
         if (result == MOVE_OK || result == MOVE_ERROR)
         {
             int requestedYAmount = (int) floor(fabs(yDistance / m_cal.yRate) + 0.5);
-            if (!IsStepGuider() && moveType != MOVETYPE_DIRECT && GetGuidingEnabled())
+            if (requestedYAmount > 0 && !IsStepGuider() && moveType != MOVETYPE_DIRECT && GetGuidingEnabled())
             {
-                int backlash_pulse = m_backlashComp->GetBacklashComp(yDirection, yDistance);
-                requestedYAmount += backlash_pulse;
+                m_backlashComp->ApplyBacklashComp(yDirection, yDistance, &requestedYAmount);
             }
             result = Move(yDirection, requestedYAmount, moveType, &yMoveResult);
         }
