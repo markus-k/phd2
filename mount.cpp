@@ -132,7 +132,7 @@ void Mount::MountConfigDialogPane::LayoutControls(wxPanel *pParent, BrainCtrlIdM
         {
             _("None"), _("Hysteresis"), _("Lowpass"), _("Lowpass2"), _("Resist Switch"),
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
-            _("Gaussian Process"), _("Trimmed Mean")
+            _("Gaussian Process"),
 #endif
         };
 
@@ -161,7 +161,7 @@ void Mount::MountConfigDialogPane::LayoutControls(wxPanel *pParent, BrainCtrlIdM
         {
             _("None"), _("Hysteresis"), _("Lowpass"), _("Lowpass2"), _("Resist Switch"),
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
-            _("Gaussian Process"), _("Trimmed Mean")
+            _("Trimmed Mean"),
 #endif
         };
         width = StringArrayWidth(yAlgorithms, WXSIZEOF(yAlgorithms));
