@@ -93,14 +93,32 @@ public:
     virtual void UnloadValues(void) {};
 };
 
+enum DitherMode
+{
+    DITHER_RANDOM,
+    DITHER_SPIRAL,
+};
+
+struct DitherSpiral
+{
+    int x, y, dx, dy;
+    bool prevRaOnly;
+
+    DitherSpiral() { Reset(); }
+    void Reset();
+    void GetDither(double amount, bool raOnly, double *dRA, double *dDec);
+};
+
 class MyFrameConfigDialogCtrlSet : public ConfigDialogCtrlSet
 {
     MyFrame *m_pFrame;
     wxCheckBox *m_pResetConfiguration;
     wxCheckBox *m_pResetDontAskAgain;
-    wxChoice* m_pLoggedImageFormat;
-    wxCheckBox *m_pDitherRaOnly;
-    wxSpinCtrlDouble *m_pDitherScaleFactor;
+    wxChoice *m_pLoggedImageFormat;
+    wxRadioButton *m_ditherRandom;
+    wxRadioButton *m_ditherSpiral;
+    wxSpinCtrlDouble *m_ditherScaleFactor;
+    wxCheckBox *m_ditherRaOnly;
     wxChoice *m_pNoiseReduction;
     wxSpinCtrl *m_pTimeLapse;
     wxTextCtrl *m_pFocalLength;
@@ -151,8 +169,10 @@ private:
     NOISE_REDUCTION_METHOD m_noiseReductionMethod;
     bool m_image_logging_enabled;
     LOGGED_IMAGE_FORMAT m_logged_image_format;
+    DitherMode m_ditherMode;
     double m_ditherScaleFactor;
     bool m_ditherRaOnly;
+    DitherSpiral m_ditherSpiral;
     bool m_serverMode;
     int  m_timeLapse;       // Delay between frames (useful for vid cameras)
     int  m_focalLength;
@@ -388,6 +408,9 @@ public:
 
     double TimeSinceGuidingStarted(void) const;
 
+    void SetDitherMode(DitherMode mode);
+    DitherMode GetDitherMode(void) const;
+
 private:
     wxCriticalSection m_CSpWorkerThread;
     WorkerThread *m_pPrimaryWorkerThread;
@@ -621,6 +644,11 @@ inline Star::FindMode MyFrame::GetStarFindMode(void) const
 inline bool MyFrame::GetRawImageMode(void) const
 {
     return m_rawImageMode;
+}
+
+inline DitherMode MyFrame::GetDitherMode(void) const
+{
+    return m_ditherMode;
 }
 
 #endif /* MYFRAME_H_INCLUDED */

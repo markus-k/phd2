@@ -838,7 +838,8 @@ bool Guider::MoveLockPosition(const PHD_Point& mountDeltaArg)
             m_ditherRecenterRemaining.SetXY(fabs(mountDelta.X), fabs(mountDelta.Y));
             m_ditherRecenterDir.x = mountDelta.X < 0.0 ? 1 : -1;
             m_ditherRecenterDir.y = mountDelta.Y < 0.0 ? 1 : -1;
-            double f = (double) GetMaxMovePixels() / m_ditherRecenterRemaining.Distance();
+            // make each step a bit less than the full search region distance to avoid losing the star
+            double f = ((double) GetMaxMovePixels() * 0.7) / m_ditherRecenterRemaining.Distance();
             m_ditherRecenterStep.SetXY(f * m_ditherRecenterRemaining.X, f * m_ditherRecenterRemaining.Y);
         }
     }
@@ -882,10 +883,8 @@ void Guider::SetState(GUIDER_STATE newState)
                     break;
             }
 
-            if (pMount && pMount->GuidingCeases())
-            {
-                throw ERROR_INFO("GuidingCeases() failed");
-            }
+            if (pMount)
+	        pMount->NotifyGuidingStopped();
         }
 
         assert(newState != STATE_STOP);
@@ -906,12 +905,6 @@ void Guider::SetState(GUIDER_STATE newState)
                 newState = STATE_SELECTING;
                 break;
             case STATE_SELECTED:
-                if (pMount)
-                {
-                    Debug.Write("Guider::SetState: clearing mount guide algorithm history\n");
-                    pMount->ClearHistory();
-                    pMount->ResetBLCBaseline();
-                }
                 break;
             case STATE_CALIBRATING_PRIMARY:
                 if (!pMount->IsCalibrated())

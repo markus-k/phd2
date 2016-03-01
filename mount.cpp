@@ -592,7 +592,7 @@ Mount::Mount(void)
     m_pXGuideAlgorithm = NULL;
     m_guidingEnabled = true;
 
-    m_backlashComp = 0;
+    m_backlashComp = NULL;
     m_lastStep.mount = this;
     m_lastStep.frameNumber = -1; // invalidate
 
@@ -722,11 +722,6 @@ void Mount::LogGuideStepInfo()
     m_lastStep.frameNumber = -1; // invalidate
 }
 
-void Mount::ResetBLCBaseline()
-{
-    m_backlashComp->ResetBaseline();
-}
-
 Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveType moveType)
 {
     MOVE_RESULT result = MOVE_OK;
@@ -770,7 +765,8 @@ Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveT
                 }
 
                 // Let BLC track the raw offsets in Dec
-                m_backlashComp->TrackBLCResults(yDistance, m_pYGuideAlgorithm->GetMinMove(), m_cal.yRate);
+                if (m_backlashComp)
+                    m_backlashComp->TrackBLCResults(yDistance, m_pYGuideAlgorithm->GetMinMove(), m_cal.yRate);
 
                 if (m_pYGuideAlgorithm)
                 {
@@ -779,7 +775,8 @@ Mount::MOVE_RESULT Mount::Move(const PHD_Point& cameraVectorEndpoint, MountMoveT
             }
             else
             {
-                m_backlashComp->ResetBaseline();
+                if (m_backlashComp)
+                    m_backlashComp->ResetBaseline();
             }
         }
 
@@ -1294,6 +1291,53 @@ inline static GuideParity guide_parity(int val)
     }
 }
 
+void Mount::NotifyGuidingStopped(void)
+{
+    Debug.Write("Mount: notify guiding stopped\n");
+
+    if (m_pXGuideAlgorithm)
+        m_pXGuideAlgorithm->GuidingStopped();
+
+    if (m_pYGuideAlgorithm)
+        m_pYGuideAlgorithm->GuidingStopped();
+
+    if (m_backlashComp)
+        m_backlashComp->ResetBaseline();
+}
+
+void Mount::NotifyGuidingPaused(void)
+{
+    Debug.Write("Mount: notify guiding paused\n");
+
+    if (m_pXGuideAlgorithm)
+        m_pXGuideAlgorithm->GuidingPaused();
+
+    if (m_pYGuideAlgorithm)
+        m_pYGuideAlgorithm->GuidingPaused();
+}
+
+void Mount::NotifyGuidingResumed(void)
+{
+    Debug.Write("Mount: notify guiding resumed\n");
+
+    if (m_pXGuideAlgorithm)
+        m_pXGuideAlgorithm->GuidingResumed();
+
+    if (m_pYGuideAlgorithm)
+        m_pYGuideAlgorithm->GuidingResumed();
+}
+
+void Mount::NotifyGuidingDithered(double dx, double dy)
+{
+    Debug.Write(wxString::Format("Mount: notify guiding dithered (%.1f, %.1f)\n", dx, dy));
+
+    if (m_pXGuideAlgorithm)
+        m_pXGuideAlgorithm->GuidingDithered(dx);
+
+    if (m_pYGuideAlgorithm)
+        m_pYGuideAlgorithm->GuidingDithered(dy);
+}
+
 void Mount::GetLastCalibration(Calibration *cal)
 {
     wxString prefix = "/" + GetMountClassName() + "/calibration/";
@@ -1393,19 +1437,6 @@ bool Mount::Disconnect(void)
     if (pFrame) pFrame->UpdateCalibrationStatus();
 
     return false;
-}
-
-void Mount::ClearHistory(void)
-{
-    if (m_pXGuideAlgorithm)
-    {
-        m_pXGuideAlgorithm->reset();
-    }
-
-    if (m_pYGuideAlgorithm)
-    {
-        m_pYGuideAlgorithm->reset();
-    }
 }
 
 wxString Mount::GetSettingsSummary()

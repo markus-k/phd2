@@ -52,6 +52,7 @@
 static const int DefaultNoiseReductionMethod = 0;
 static const double DefaultDitherScaleFactor = 1.00;
 static const bool DefaultDitherRaOnly = false;
+static const DitherMode DefaultDitherMode = DITHER_RANDOM;
 static const bool DefaultServerMode = true;
 static const bool DefaultLoggingMode = false;
 static const int DefaultTimelapse = 0;
@@ -726,6 +727,9 @@ void MyFrame::LoadProfileSettings(void)
     bool ditherRaOnly = pConfig->Profile.GetBoolean("/DitherRaOnly", DefaultDitherRaOnly);
     SetDitherRaOnly(ditherRaOnly);
 
+    int ditherMode = pConfig->Profile.GetInt("/DitherMode", DefaultDitherMode);
+    SetDitherMode(ditherMode == DITHER_RANDOM ? DITHER_RANDOM : DITHER_SPIRAL);
+
     int timeLapse = pConfig->Profile.GetInt("/frame/timeLapse", DefaultTimelapse);
     SetTimeLapse(timeLapse);
 
@@ -1233,7 +1237,7 @@ bool MyFrame::StartWorkerThread(WorkerThread*& pWorkerThread)
             }
         }
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         delete pWorkerThread;
@@ -1469,7 +1473,7 @@ void MyFrame::SetPaused(PauseType pause)
         if (pMount)
         {
             Debug.Write("un-pause: clearing mount guide algorithm history\n");
-            pMount->ClearHistory();
+            pMount->NotifyGuidingResumed();
         }
         if (m_continueCapturing && !m_exposurePending)
             ScheduleExposure();
@@ -1505,7 +1509,7 @@ bool MyFrame::StartLooping(void)
         StatusMsg(_("Looping"));
         StartCapturing();
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
@@ -1531,10 +1535,70 @@ bool MyFrame::StartGuiding(void)
         pGuider->StartGuiding();
         StartCapturing();
         UpdateButtonsStatus();
+        // reset dither state when guiding starts
+        m_ditherSpiral.Reset();
         error = false;
     }
 
     return error;
+}
+
+void DitherSpiral::Reset()
+{
+    Debug.Write("reset dither spiral\n");
+    x = y = 0;
+    dx = -1;
+    dy = 0;
+    prevRaOnly = false;
+}
+
+inline static void ROT(int& dx, int& dy)
+{
+    int t = -dx;
+    dx = dy;
+    dy = t;
+}
+
+void DitherSpiral::GetDither(double amount, bool raOnly, double *dRa, double *dDec)
+{
+    // reset state when switching between ra only and ra/dec
+    if (raOnly != prevRaOnly)
+    {
+        Reset();
+        prevRaOnly = raOnly;
+    }
+
+    if (raOnly)
+    {
+        // x = 0,1,-1,-2,2,3,-3,-4,4,5,...
+        ROT(dx, dy);
+        int x0 = x;
+        if (dy == 0)
+            x = -x;
+        else
+            x += dy;
+
+        *dRa = (double)(x - x0) * amount;
+        *dDec = 0.0;
+    }
+    else
+    {
+        if (x == y || (x > 0 && x == -y) || (x <= 0 && y == 1 - x))
+            ROT(dx, dy);
+
+        x += dx;
+        y += dy;
+
+        *dRa  = (double) dx * amount;
+        *dDec = (double) dy * amount;
+    }
+}
+
+void MyFrame::SetDitherMode(DitherMode mode)
+{
+    Debug.Write(wxString::Format("set dither mode %d\n", mode));
+    m_ditherMode = mode;
+    pConfig->Profile.SetInt("/DitherMode", mode);
 }
 
 bool MyFrame::Dither(double amount, bool raOnly)
@@ -1566,8 +1630,19 @@ bool MyFrame::Dither(double amount, bool raOnly)
 
         amount *= m_ditherScaleFactor;
 
-        double dRa  =  amount * ((rand() / (double)RAND_MAX) * 2.0 - 1.0);
-        double dDec =  raOnly ? 0.0 : amount * ((rand() / (double)RAND_MAX) * 2.0 - 1.0);
+        double dRa = 0.0;
+        double dDec = 0.0;
+
+        if (m_ditherMode == DITHER_SPIRAL)
+        {
+            m_ditherSpiral.GetDither(amount, raOnly, &dRa, &dDec);
+        }
+        else
+        {
+            // DITHER_RANDOM
+            dRa  =  amount * ((rand() / (double)RAND_MAX) * 2.0 - 1.0);
+            dDec =  raOnly ? 0.0 : amount * ((rand() / (double)RAND_MAX) * 2.0 - 1.0);
+        }
 
         Debug.Write(wxString::Format("dither: size=%.2f, dRA=%.2f dDec=%.2f\n", amount, dRa, dDec));
 
@@ -1580,7 +1655,7 @@ bool MyFrame::Dither(double amount, bool raOnly)
         // Reset guide algorithm history.
         // For algorithms like Resist Switch, the dither invalidates the state, so start again from scratch.
         Debug.Write("dither: clearing mount guide algorithm history\n");
-        pMount->ClearHistory();
+        pMount->NotifyGuidingDithered(dRa, dDec);
 
         StatusMsg(wxString::Format(_("Dither by %.2f,%.2f"), dRa, dDec));
         GuideLog.NotifyGuidingDithered(pGuider, dRa, dDec);
@@ -1601,7 +1676,7 @@ bool MyFrame::Dither(double amount, bool raOnly)
             }
         }
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         error = true;
@@ -1674,7 +1749,7 @@ bool MyFrame::SetNoiseReductionMethod(int noiseReductionMethod)
         }
         m_noiseReductionMethod = (NOISE_REDUCTION_METHOD)noiseReductionMethod;
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
 
@@ -1704,7 +1779,7 @@ bool MyFrame::SetDitherScaleFactor(double ditherScaleFactor)
         }
         m_ditherScaleFactor = ditherScaleFactor;
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -1833,7 +1908,7 @@ static bool save_multi_darks(const ExposureImgMap& darks, const wxString& fname,
         PHD_fits_close_file(fptr);
         bError = status ? true : false;
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -1936,7 +2011,7 @@ static bool load_multi_darks(GuideCamera *camera, const wxString& fname)
             throw ERROR_INFO("error opening file");
         }
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -2151,7 +2226,7 @@ bool MyFrame::SetTimeLapse(int timeLapse)
 
         m_timeLapse = timeLapse;
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -2181,7 +2256,7 @@ bool MyFrame::SetFocalLength(int focalLength)
 
         m_focalLength = focalLength;
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
         bError = true;
@@ -2292,20 +2367,19 @@ MyFrameConfigDialogPane::MyFrameConfigDialogPane(wxWindow *pParent, MyFrame *pFr
 void MyFrameConfigDialogPane::LayoutControls(BrainCtrlIdMap& CtrlMap)
 {
     wxSizerFlags sizer_flags = wxSizerFlags(0).Border(wxALL, 5).Expand();
-    wxFlexGridSizer *pTopGrid = new wxFlexGridSizer(3, 2, 15, 15);
+    wxFlexGridSizer *pTopGrid = new wxFlexGridSizer(2, 2, 15, 15);
 
     pTopGrid->Add(GetSizerCtrl(CtrlMap, AD_szLanguage));
     pTopGrid->Add(GetSingleCtrl(CtrlMap, AD_cbResetConfig));
     pTopGrid->Add(GetSingleCtrl(CtrlMap, AD_cbDontAsk));
     pTopGrid->Add(GetSizerCtrl(CtrlMap, AD_szImageLoggingFormat));
-    pTopGrid->Add(GetSingleCtrl(CtrlMap, AD_szDitherRAOnly));
-    pTopGrid->Add(GetSizerCtrl(CtrlMap, AD_szDitherScale));
     this->Add(pTopGrid, sizer_flags);
     this->Add(GetSizerCtrl(CtrlMap, AD_szLogFileInfo), sizer_flags);
+    this->Add(GetSizerCtrl(CtrlMap, AD_szDither), sizer_flags);
     Layout();
 }
 
-MyFrameConfigDialogCtrlSet* MyFrame::GetConfigDlgCtrlSet(MyFrame *pFrame, AdvancedDialog *pAdvancedDialog, BrainCtrlIdMap& CtrlMap)
+MyFrameConfigDialogCtrlSet *MyFrame::GetConfigDlgCtrlSet(MyFrame *pFrame, AdvancedDialog *pAdvancedDialog, BrainCtrlIdMap& CtrlMap)
 {
     return new MyFrameConfigDialogCtrlSet(pFrame, pAdvancedDialog, CtrlMap);
 }
@@ -2332,17 +2406,6 @@ MyFrameConfigDialogCtrlSet::MyFrameConfigDialogCtrlSet(MyFrame *pFrame, Advanced
         wxSize(width + 35, -1), WXSIZEOF(img_formats), img_formats);
     AddLabeledCtrl(CtrlMap, AD_szImageLoggingFormat, _("Image logging format"), m_pLoggedImageFormat,
         _("File format of logged images"));
-
-    parent = GetParentWindow(AD_szDitherRAOnly);
-    m_pDitherRaOnly = new wxCheckBox(parent, wxID_ANY, _("Dither RA only"), wxPoint(-1, -1));
-    AddCtrl(CtrlMap, AD_szDitherRAOnly, m_pDitherRaOnly, _("Constrain dither to RA only"));
-
-    width = StringWidth(_T("000.00"));
-    m_pDitherScaleFactor = new wxSpinCtrlDouble(GetParentWindow(AD_szDitherScale), wxID_ANY, _T("foo2"), wxPoint(-1, -1),
-        wxSize(width + 30, -1), wxSP_ARROW_KEYS, 0.1, 100.0, 0.0, 1.0, _T("DitherScaleFactor"));
-    m_pDitherScaleFactor->SetDigits(1);
-    AddLabeledCtrl(CtrlMap, AD_szDitherScale, _("Dither Scale"), m_pDitherScaleFactor,
-        _("Scaling for dither commands. Default = 1.0 (0.01-100.0)"));
 
     wxString nralgo_choices[] =
     {
@@ -2425,6 +2488,36 @@ MyFrameConfigDialogCtrlSet::MyFrameConfigDialogCtrlSet(MyFrame *pFrame, Advanced
     pInputGroupBox->Add(pButtonSizer, wxSizerFlags(0).Align(wxRIGHT).Border(wxTop, 20));
     AddGroup(CtrlMap, AD_szLogFileInfo, pInputGroupBox);
 
+    // Dither
+    parent = GetParentWindow(AD_szDither);
+    wxStaticBoxSizer *ditherGroupBox = new wxStaticBoxSizer(wxVERTICAL, parent, _("Dither Settings"));
+    m_ditherRandom = new wxRadioButton(parent, wxID_ANY, _("Random"));
+    m_ditherRandom->SetToolTip(_("Each dither command moves the lock position a random distance on each axis"));
+    m_ditherSpiral = new wxRadioButton(parent, wxID_ANY, _("Spiral"));
+    m_ditherSpiral->SetToolTip(_("Each dither command moves the lock position along a spiral path"));
+    wxBoxSizer *sz = new wxBoxSizer(wxHORIZONTAL);
+    sz->Add(new wxStaticText(parent, wxID_ANY, _("Mode: ")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxALL, 3));
+    sz->Add(m_ditherRandom, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxALL, 3));
+    sz->Add(m_ditherSpiral, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxALL, 3));
+    ditherGroupBox->Add(sz);
+
+    m_ditherRaOnly = new wxCheckBox(parent, wxID_ANY, _("RA only"));
+    m_ditherRaOnly->SetToolTip(_("Constrain dither to RA only"));
+
+    width = StringWidth(_T("000.00"));
+    m_ditherScaleFactor = new wxSpinCtrlDouble(parent, wxID_ANY, _T("foo2"), wxDefaultPosition,
+        wxSize(width + 30, -1), wxSP_ARROW_KEYS, 0.1, 100.0, 0.0, 1.0);
+    m_ditherScaleFactor->SetDigits(1);
+    m_ditherScaleFactor->SetToolTip(_("Scaling for dither commands. Default = 1.0 (0.01-100.0)"));
+
+    sz = new wxBoxSizer(wxHORIZONTAL);
+    sz->Add(m_ditherRaOnly, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxALL, 3));
+    sz->Add(new wxStaticText(parent, wxID_ANY, _("Scale") + _(": ")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxALL, 3));
+    sz->Add(m_ditherScaleFactor, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxALL, 3));
+    ditherGroupBox->Add(sz);
+
+    AddGroup(CtrlMap, AD_szDither, ditherGroupBox);
+
     parent = GetParentWindow(AD_cbAutoRestoreCal);
     m_pAutoLoadCalibration = new wxCheckBox(parent, wxID_ANY, _("Auto restore calibration"), wxDefaultPosition, wxDefaultSize);
     AddCtrl(CtrlMap, AD_cbAutoRestoreCal, m_pAutoLoadCalibration, _("Automatically restore calibration data from last successful calibration when connecting equipment."));
@@ -2457,8 +2550,12 @@ void MyFrameConfigDialogCtrlSet::LoadValues()
     m_pResetDontAskAgain->SetValue(false);
     m_pLoggedImageFormat->SetSelection(pFrame->GetLoggedImageFormat());
     m_pNoiseReduction->SetSelection(pFrame->GetNoiseReductionMethod());
-    m_pDitherRaOnly->SetValue(m_pFrame->GetDitherRaOnly());
-    m_pDitherScaleFactor->SetValue(m_pFrame->GetDitherScaleFactor());
+    if (m_pFrame->GetDitherMode() == DITHER_RANDOM)
+        m_ditherRandom->SetValue(true);
+    else
+        m_ditherSpiral->SetValue(true);
+    m_ditherRaOnly->SetValue(m_pFrame->GetDitherRaOnly());
+    m_ditherScaleFactor->SetValue(m_pFrame->GetDitherScaleFactor());
     m_pTimeLapse->SetValue(m_pFrame->GetTimeLapse());
     SetFocalLength(m_pFrame->GetFocalLength());
     m_pFocalLength->Enable(!pFrame->CaptureActive);
@@ -2510,10 +2607,10 @@ void MyFrameConfigDialogCtrlSet::UnloadValues()
 
         m_pFrame->SetLoggedImageFormat((LOGGED_IMAGE_FORMAT)m_pLoggedImageFormat->GetSelection());
         m_pFrame->SetNoiseReductionMethod(m_pNoiseReduction->GetSelection());
-        m_pFrame->SetDitherRaOnly(m_pDitherRaOnly->GetValue());
-        m_pFrame->SetDitherScaleFactor(m_pDitherScaleFactor->GetValue());
+        m_pFrame->SetDitherMode(m_ditherRandom->GetValue() ? DITHER_RANDOM : DITHER_SPIRAL);
+        m_pFrame->SetDitherRaOnly(m_ditherRaOnly->GetValue());
+        m_pFrame->SetDitherScaleFactor(m_ditherScaleFactor->GetValue());
         m_pFrame->SetTimeLapse(m_pTimeLapse->GetValue());
-
         m_pFrame->SetFocalLength(GetFocalLength());
 
         int language = m_pLanguage->GetSelection();
@@ -2545,11 +2642,10 @@ void MyFrameConfigDialogCtrlSet::UnloadValues()
 
         m_pFrame->SetAutoExposureCfg(durationMin, durationMax, m_autoExpSNR->GetValue());
     }
-    catch (wxString Msg)
+    catch (const wxString& Msg)
     {
         POSSIBLY_UNUSED(Msg);
     }
-
 }
 
 // Following are needed by step-size calculator to keep the UIs in-synch
