@@ -128,7 +128,7 @@ void Mount::MountConfigDialogPane::LayoutControls(wxPanel *pParent, BrainCtrlIdM
         m_pDecBox = new wxStaticBoxSizer(wxVERTICAL, m_pParent, _("Declination"));
         wxSizerFlags def_flags = wxSizerFlags(0).Border(wxALL, 10).Expand();
 
-        wxString xAlgorithms[] = 
+        wxString xAlgorithms[] =
         {
             _("None"), _("Hysteresis"), _("Lowpass"), _("Lowpass2"), _("Resist Switch"),
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
@@ -157,7 +157,7 @@ void Mount::MountConfigDialogPane::LayoutControls(wxPanel *pParent, BrainCtrlIdM
         if (!stepGuider)
             m_pRABox->Add(GetSizerCtrl(CtrlMap, AD_szMaxRAAmt), wxSizerFlags(0).Border(wxTOP, 35).Center());
 
-        wxString yAlgorithms[] = 
+        wxString yAlgorithms[] =
         {
             _("None"), _("Hysteresis"), _("Lowpass"), _("Lowpass2"), _("Resist Switch"),
 #if defined(MPIIS_GAUSSIAN_PROCESS_GUIDING_ENABLED__)
