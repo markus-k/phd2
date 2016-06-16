@@ -549,8 +549,8 @@ double GuideAlgorithmTrimmedMean::result(double input)
     parameters->add_one_point();
     HandleControls(parameters->control_signal_);
 
-    Debug.AddLine("Trimmed mean guider: input: %f, diff: %f, prediction: %f, control: %f",
-        input, difference, drift_prediction, parameters->control_signal_);
+    Debug.AddLine(wxString::Format("Trimmed mean guider: input: %f, diff: %f, prediction: %f, control: %f",
+        input, difference, drift_prediction, parameters->control_signal_));
 
     // write the data to a file for easy debugging
 #if MW_DEBUG_FILE_
@@ -607,8 +607,8 @@ double GuideAlgorithmTrimmedMean::deduceResult()
 
     StoreControls(parameters->control_signal_);
 
-    Debug.AddLine("Median window guider (deduced): gain: %f, prediction: %f, control: %f",
-        parameters->control_gain_, drift_prediction, parameters->control_signal_);
+    Debug.AddLine(wxString::Format("Median window guider (deduced): gain: %f, prediction: %f, control: %f",
+        parameters->control_gain_, drift_prediction, parameters->control_signal_));
 
     assert(parameters->control_gain_ < 10);
 

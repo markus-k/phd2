@@ -895,7 +895,7 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
       if (dt < 0)
       {
           Debug.AddLine("Something is wrong: The average time step length is is negative!");
-          Debug.AddLine("timestamps: last: %f, first: %f, rows: %f", timestamps(timestamps.rows() - 1), timestamps(1), timestamps.rows());
+          Debug.AddLine(wxString::Format("timestamps: last: %f, first: %f, rows: %f", timestamps(timestamps.rows() - 1), timestamps(1), timestamps.rows()));
           return;
       }
 
@@ -940,7 +940,7 @@ void GuideAlgorithmGaussianProcess::UpdateGP()
 
     end = std::clock();
     double time_gp = double(end - begin) / CLOCKS_PER_SEC;
-    Debug.AddLine("timings: init: %f, detrend: %f, fft: %f, gp: %f", time_init, time_detrend, time_fft, time_gp);
+    Debug.AddLine(wxString::Format("timings: init: %f, detrend: %f, fft: %f, gp: %f", time_init, time_detrend, time_fft, time_gp));
 }
 
 double GuideAlgorithmGaussianProcess::PredictGearError()
@@ -1057,7 +1057,7 @@ double GuideAlgorithmGaussianProcess::result(double input)
     }
     outfile.close();
 #endif
-    Debug.AddLine("GP Guider generated %f from input %f.", parameters->control_signal_, input);
+    Debug.AddLine(wxString::Format("GP Guider generated %f from input %f.", parameters->control_signal_, input));
 
     assert(std::abs(parameters->control_signal_) < 100);
     assert(!math_tools::isNaN(parameters->control_signal_));
