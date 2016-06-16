@@ -1154,5 +1154,25 @@ double GuideAlgorithmGaussianProcess::deduceResult()
 void GuideAlgorithmGaussianProcess::reset()
 {
     parameters->clear();
-    return;
+}
+
+void GuideAlgorithmGaussianProcess::GuidingStopped(void)
+{
+    reset(); // reset is only done on a complete stop
+}
+
+void GuideAlgorithmGaussianProcess::GuidingPaused(void)
+{
+}
+
+void GuideAlgorithmGaussianProcess::GuidingResumed(void)
+{
+}
+
+void GuideAlgorithmGaussianProcess::GuidingDithered(double amt)
+{
+}
+
+void GuideAlgorithmGaussianProcess::GuidingDitherSettleDone(void)
+{
 }

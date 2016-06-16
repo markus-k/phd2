@@ -170,6 +170,38 @@ public:
     virtual double deduceResult(void);
 
     /**
+     * This method tells the guider that guiding was stopped, e.g. for
+     * slweing. This method resets the internal state of the guider.
+     */
+    virtual void GuidingStopped(void);
+
+    /**
+     * This method tells the guider that guiding was paused, e.g. for
+     * refocusing. This method keeps the internal state of the guider.
+     */
+    virtual void GuidingPaused(void);
+
+    /**
+     * This method tells the guider that guiding was resumed, e.g. after
+     * refocusing. This method fills the measurements of the guider with
+     * predictions to keep the FFT and the GP in a working state.
+     */
+    virtual void GuidingResumed(void);
+
+    /**
+     * This method tells the guider that a dither command was issued. The guider
+     * will stop collecting measurements and uses predictions instead, to keep
+     * the FFT and the GP working.
+     */
+    virtual void GuidingDithered(double amt);
+
+    /**
+     * This method tells the guider that dithering is finished. The guider
+     * will resume normal operation.
+     */
+    virtual void GuidingDitherSettleDone(void);
+
+    /**
      * Clears the data from the circular buffer and clears the GP data.
      */
     virtual void reset();
