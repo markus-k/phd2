@@ -947,7 +947,7 @@ double GuideAlgorithmGaussianProcess::PredictGearError()
 {
     int delta_controller_time_ms = pFrame->RequestedExposureDuration();
 
-    if ( parameters->last_prediction_end_ < 1.0 )
+    if ( parameters->last_prediction_end_ < 1.0 ) // check if this is near zero
     {
         parameters->last_prediction_end_ = parameters->timer_.Time() / 1000.0;
     }
