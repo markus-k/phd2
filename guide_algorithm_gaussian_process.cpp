@@ -1226,11 +1226,14 @@ void GuideAlgorithmGaussianProcess::GuidingDithered(double amt)
     parameters->dither_steps_ = 10;
 }
 
-void GuideAlgorithmGaussianProcess::GuidingDitherSettleDone(void)
+void GuideAlgorithmGaussianProcess::GuidingDitherSettleDone(bool success)
 {
     /*
      * Once dithering has settled, we can start regular guiding again.
      */
-    parameters->dithering_active_ = false;
-    parameters->dither_steps_ = 0;
+    if (success)
+    {
+        parameters->dithering_active_ = false;
+        parameters->dither_steps_ = 0;
+    }
 }

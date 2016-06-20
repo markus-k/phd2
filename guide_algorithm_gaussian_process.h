@@ -199,7 +199,7 @@ public:
      * This method tells the guider that dithering is finished. The guider
      * will resume normal operation.
      */
-    virtual void GuidingDitherSettleDone(void);
+    virtual void GuidingDitherSettleDone(bool success);
 
     /**
      * Clears the data from the circular buffer and clears the GP data.
