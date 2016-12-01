@@ -96,6 +96,7 @@
 # define SXV
 # define OPENSSAG
 # define KWIQGUIDER
+# define INDI_CAMERA
 
 # define ZWO_ASI
 

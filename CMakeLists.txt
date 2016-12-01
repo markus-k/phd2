@@ -113,6 +113,9 @@ else()
     if(HAS_LIBCXX11_FLAG)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
     endif()
+
+    # make sure wchar functions are not defined in Apple's default includes
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_WCHAR_H_CPLUSPLUS_98_CONFORMANCE_")
   endif()
 endif()
 

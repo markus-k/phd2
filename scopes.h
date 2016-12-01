@@ -53,6 +53,7 @@
     //#define GUIDE_VOYAGER
     //#define GUIDE_NEB
     #define GUIDE_EQMAC
+    #define GUIDE_INDI
 
 #elif defined (__linux__)
 

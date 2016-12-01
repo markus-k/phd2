@@ -872,7 +872,28 @@ if(APPLE)
 endif()  # APPLE
 
 
+#############################################
+#
+# INDI support, for all UNIXes
+#
+#############################################
+if(UNIX)
+  # INDI
+  # some features for indi >= 0.9 are used apparently
+  find_package(INDI 0.9 REQUIRED)
+  include_directories(${INDI_INCLUDE_DIR})
+  set(PHD_LINK_EXTERNAL ${PHD_LINK_EXTERNAL} ${INDI_CLIENT_LIBRARIES} ${INDI_LIBRARIES})
+  if(PC_INDI_VERSION VERSION_LESS "1.1")
+    add_definitions("-DINDI_PRE_1_1_0")
+  endif()
+  if(PC_INDI_VERSION VERSION_LESS "1.0")
+    add_definitions("-DINDI_PRE_1_0_0")
+  endif()
 
+  # INDI depends on libz
+  find_package(ZLIB REQUIRED)
+  set(PHD_LINK_EXTERNAL ${PHD_LINK_EXTERNAL} ${ZLIB_LIBRARIES})
+endif()
 
 
 
@@ -880,7 +901,6 @@ endif()  # APPLE
 #
 # Unix/Linux specific dependencies
 # - ASI cameras
-# - INDI
 # - Nova (optional)
 # - USB (commonly shared)
 # - math (libm)
@@ -916,22 +936,6 @@ if(UNIX AND NOT APPLE)
   # math library is needed, and should be one of the last things to link to here
   find_library(mathlib NAMES m)  
   set(PHD_LINK_EXTERNAL ${PHD_LINK_EXTERNAL} ${mathlib})
-
-  # INDI
-  # some features for indi >= 0.9 are used apparently
-  find_package(INDI 0.9 REQUIRED)
-  include_directories(${INDI_INCLUDE_DIR})
-  set(PHD_LINK_EXTERNAL ${PHD_LINK_EXTERNAL} ${INDI_CLIENT_LIBRARIES} ${INDI_LIBRARIES})
-  if(PC_INDI_VERSION VERSION_LESS "1.1")
-    add_definitions("-DINDI_PRE_1_1_0")
-  endif()
-  if(PC_INDI_VERSION VERSION_LESS "1.0")
-    add_definitions("-DINDI_PRE_1_0_0")
-  endif()
-  
-  # INDI depends on libz
-  find_package(ZLIB REQUIRED)
-  set(PHD_LINK_EXTERNAL ${PHD_LINK_EXTERNAL} ${ZLIB_LIBRARIES})
 
   
   # Nova
