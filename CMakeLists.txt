@@ -487,7 +487,7 @@ set(phd2_SRC
   ${phd_src_dir}/worker_thread.h
 )
 
-if(UNIX AND NOT APPLE)
+if(UNIX)
   set(phd2_SRC 
       ${phd2_SRC}
       ${phd_src_dir}/config_INDI.cpp
