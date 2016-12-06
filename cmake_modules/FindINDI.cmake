@@ -44,7 +44,7 @@ else (INDI_INCLUDE_DIR AND INDI_DATA_DIR AND INDI_LIBRARIES AND INDI_DRIVER_LIBR
   endif()
 
   if (PC_INDI_FOUND)
-    find_path(INDI_INCLUDE_DIR indidevapi.h
+    find_path(INDI_INCLUDE_DIR libindi/indidevapi.h
       PATH_SUFFIXES libindi
       HINTS ${PC_INDI_INCLUDE_DIRS}
     )
