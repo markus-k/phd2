@@ -181,10 +181,10 @@ void IndiGui::OnNewPropertyFromThread(wxThreadEvent& event)
     
     page = (wxPanel *)indiDev->groups[groupname];
     if (! page) {
-	page = new wxPanel(indiDev->page);
-	indiDev->page->AddPage(page, groupname);
-	page->SetSizer(new wxGridBagSizer(0, 20));
-	indiDev->groups[groupname] = page;
+        page = new wxPanel(indiDev->page);
+        indiDev->page->AddPage(page, groupname);
+        page->SetSizer(new wxGridBagSizer(0, 20));
+        indiDev->groups[groupname] = page;
     }
     
     gbs = (wxGridBagSizer *)page->GetSizer();
@@ -198,7 +198,6 @@ void IndiGui::OnNewPropertyFromThread(wxThreadEvent& event)
     gbs->Layout();
     page->Fit();
     panel->Fit();
-    page->Show();
     indiDev->properties[propname] = indiProp;
     indiDev->page->Fit();
     indiDev->page->Layout();
